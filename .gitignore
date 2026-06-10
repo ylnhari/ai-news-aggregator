@@ -1,0 +1,49 @@
+\.venv/
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+reports/
+*.log
+/.mypy_cache# Environment and build files
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Data files
+data/*.json
+!config/twitter_accounts.json
+
+# Reports 
+reports/*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+.thumbnails/
+
+# Logs
+*.log
+
+# Cache
+.cache/
+.pytest_cache/
+.coverage

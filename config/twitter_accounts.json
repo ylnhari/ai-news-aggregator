@@ -1,0 +1,316 @@
+{
+  "accounts": {
+    "foundational_pioneers": [
+      {
+        "handle": "karpathy",
+        "name": "Andrej Karpathy",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Former Tesla AI Director and OpenAI co-founder; the leading voice on LLM mechanics and practical building."
+      },
+      {
+        "handle": "ylecun",
+        "name": "Yann LeCun",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Chief AI Scientist at Meta; Turing Award winner known for unfiltered critiques of current AI limits."
+      },
+      {
+        "handle": "AndrewYNg",
+        "name": "Andrew Ng",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Founder of DeepLearning.AI; highly accessible voice on machine learning education and real-world deployment."
+      },
+      {
+        "handle": "drfeifei",
+        "name": "Fei-Fei Li",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Stanford Professor and Co-Director of HAI; pioneer of computer vision and spatial intelligence."
+      },
+      {
+        "handle": "fchollet",
+        "name": "François Chollet",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Creator of Keras and the ARC-AGI benchmark; essential follow for deep conceptual AI philosophy."
+      },
+      {
+        "handle": "geoffreyhinton",
+        "name": "Geoffrey Hinton",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Godfather of Deep Learning and Turing Award winner; focuses deeply on AI existential risk and neural nets."
+      },
+      {
+        "handle": "demishassabis",
+        "name": "Demis Hassabis",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Co-founder and CEO of Google DeepMind; shares structural scientific breakthroughs like AlphaFold."
+      },
+      {
+        "handle": "ilyasut",
+        "name": "Ilya Sutskever",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Former OpenAI Chief Scientist; deeply respected for tracking fundamental shifts toward AGI."
+      },
+      {
+        "handle": "goodfellow_ian",
+        "name": "Ian Goodfellow",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Inventor of Generative Adversarial Networks (GANs); authoritative updates on deep learning architectures."
+      },
+      {
+        "handle": "GaryMarcus",
+        "name": "Gary Marcus",
+        "category": "Foundational Pioneers & Top Researchers",
+        "description": "Cognitive scientist and leading AI contrarian; vital for spotting hype and structural flaws in current LLMs."
+      }
+    ],
+    "tech_ceos": [
+      {
+        "handle": "sama",
+        "name": "Sam Altman",
+        "category": "Tech CEOs & Key Product Leaders",
+        "description": "CEO of OpenAI; crucial for major macro announcements and product release timelines."
+      },
+      {
+        "handle": "aravsrinivas",
+        "name": "Aravind Srinivas",
+        "category": "Tech CEOs & Key Product Leaders",
+        "description": "CEO of Perplexity AI; highly active in explaining the future of search and agentic web workflows."
+      },
+      {
+        "handle": "gdb",
+        "name": "Greg Brockman",
+        "category": "Tech CEOs & Key Product Leaders",
+        "description": "President of OpenAI; tweets frequently on the core infrastructure and technical engineering challenges of AI scales."
+      },
+      {
+        "handle": "OfficialLoganK",
+        "name": "Logan Kilpatrick",
+        "category": "Tech CEOs & Key Product Leaders",
+        "description": "AI Product Lead at Google; provides great bridges between developer needs and frontier models."
+      },
+      {
+        "handle": "darioamodei",
+        "name": "Dario Amodei",
+        "category": "Tech CEOs & Key Product Leaders",
+        "description": "CEO of Anthropic; focuses on scaling laws, safety-first alignment, and the Claude ecosystem."
+      },
+      {
+        "handle": "mattshumer_",
+        "name": "Matt Shumer",
+        "category": "Tech CEOs & Key Product Leaders",
+        "description": "CEO of OthersideAI/HyperWrite; consistently drops open-source tools, prompts, and experimentation loops."
+      },
+      {
+        "handle": "levelsio",
+        "name": "Pieter Levels",
+        "category": "Tech CEOs & Key Product Leaders",
+        "description": "Solo developer and indie hacker; famous for sharing the exact revenue and technical pipelines of his profitable AI micro-SaaS apps."
+      },
+      {
+        "handle": "marclou",
+        "name": "Marc Lou",
+        "category": "Tech CEOs & Key Product Leaders",
+        "description": "High-tempo solo developer shipping practical, fast-to-market consumer AI tools."
+      },
+      {
+        "handle": "id_aa_carmack",
+        "name": "John Carmack",
+        "category": "Tech CEOs & Key Product Leaders",
+        "description": "Legendary game engineer now building AGI independently; offers a unique hardware-meets-software optimization perspective."
+      }
+    ],
+    "engineering_experts": [
+      {
+        "handle": "simonw",
+        "name": "Simon Willison",
+        "category": "Practical Engineering & Open-Source Experts",
+        "description": "Co-creator of Django; unmatched resource for local LLM workflows, sqlite tools, and web security issues."
+      },
+      {
+        "handle": "rasbt",
+        "name": "Sebastian Raschka",
+        "category": "Practical Engineering & Open-Source Experts",
+        "description": "AI Educator and Researcher; famous for visually breaking down complex machine learning papers into code snippets."
+      },
+      {
+        "handle": "jeremyphoward",
+        "name": "Jeremy Howard",
+        "category": "Practical Engineering & Open-Source Experts",
+        "description": "Co-founder of Fast.ai; the ultimate champion of making deep learning accessible to normal programmers."
+      },
+      {
+        "handle": "reach_vb",
+        "name": "Vaibhav Blis",
+        "category": "Practical Engineering & Open-Source Experts",
+        "description": "Lead Developer Evangelist at Hugging Face; highly tactical focus on deploying open-source speech and text models."
+      },
+      {
+        "handle": "swyx",
+        "name": "Swyx (Latent Space)",
+        "category": "Practical Engineering & Open-Source Experts",
+        "description": "Co-host of the Latent Space podcast; phenomenal at tracking the actual engineering stack."
+      },
+      {
+        "handle": "shanselman",
+        "name": "Scott Hanselman",
+        "category": "Practical Engineering & Open-Source Experts",
+        "description": "VP at Microsoft; excellent resource for incorporating AI tools smoothly into developer ecosystems."
+      },
+      {
+        "handle": "yoheinajajima",
+        "name": "Yohei Nakajima",
+        "category": "Practical Engineering & Open-Source Experts",
+        "description": "Creator of BabyAGI; an absolute must-follow for tracking the cutting edge of autonomous AI agent frameworks."
+      },
+      {
+        "handle": "alexvolkov",
+        "name": "Alex Volkov",
+        "category": "Practical Engineering & Open-Source Experts",
+        "description": "Host of AI Today; tracks minor, critical undocumented updates, API quirks, and changes to popular AI tools."
+      }
+    ],
+    "analysts": [
+      {
+        "handle": "alliekmiller",
+        "name": "Allie K. Miller",
+        "category": "Analysts, Macro Trends, & Business Impact",
+        "description": "Massive AI business advisor; focuses on enterprise integration, implementation strategies, and venture capital."
+      },
+      {
+        "handle": "nathanbenaich",
+        "name": "Nathan Benaich",
+        "category": "Analysts, Macro Trends, & Business Impact",
+        "description": "Author of the highly respected annual State of AI Report; exceptional for macroeconomic data and funding insights."
+      },
+      {
+        "handle": "erikbryn",
+        "name": "Erik Brynjolfsson",
+        "category": "Analysts, Macro Trends, & Business Impact",
+        "description": "Stanford Economist; tracks how generative AI alters labor productivity, GDP, and workforce structures."
+      },
+      {
+        "handle": "EthanMollick",
+        "name": "Ethan Mollick",
+        "category": "Analysts, Macro Trends, & Business Impact",
+        "description": "Wharton Professor; the absolute best researcher for studying how real corporate employees and students interact with AI tools."
+      },
+      {
+        "handle": "paulg",
+        "name": "Paul Graham",
+        "category": "Analysts, Macro Trends, & Business Impact",
+        "description": "Co-founder of Y Combinator; provides valuable perspective on how AI impacts startup velocity and tech trends."
+      },
+      {
+        "handle": "bentossell",
+        "name": "Ben Tossell",
+        "category": "Analysts, Macro Trends, & Business Impact",
+        "description": "Founder of Ben's Bites; isolates business use cases, operational workflows, and software trends impacted by automation."
+      }
+    ],
+    "news_creators": [
+      {
+        "handle": "TheRundownAI",
+        "name": "The Rundown AI",
+        "category": "News Creators & High-Utility Aggregators",
+        "description": "High-speed news network summarizing massive industry releases into skimmable fragments."
+      },
+      {
+        "handle": "rowan_cheung",
+        "name": "Rowan Cheung",
+        "category": "News Creators & High-Utility Aggregators",
+        "description": "Founder of The Rundown; profiles tool releases, prompt guides, and major model capabilities daily."
+      },
+      {
+        "handle": "A_Single_Bear",
+        "name": "Charlie Light",
+        "category": "News Creators & High-Utility Aggregators",
+        "description": "Synthesizes deep tech developments and enterprise adoption numbers into digestible summaries."
+      },
+      {
+        "handle": "DataChaz",
+        "name": "Charly Wargnier",
+        "category": "News Creators & High-Utility Aggregators",
+        "description": "Curates daily high-value cheat sheets, links to research papers, and technical updates from the open-source community."
+      },
+      {
+        "handle": "bindureddy",
+        "name": "Bindu Reddy",
+        "category": "News Creators & High-Utility Aggregators",
+        "description": "CEO of Abacus.ai; highly active commentator on vendor lock-in, open vs. closed source debates, and enterprise reality checks."
+      }
+    ],
+    "frontier_companies": [
+      {
+        "handle": "OpenAI",
+        "name": "OpenAI",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Official channel for ChatGPT updates, API price reductions, and structural system capabilities."
+      },
+      {
+        "handle": "AnthropicAI",
+        "name": "Anthropic AI",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Official handle for Claude; heavily focused on structural safety benchmarks, prompt engineering guides, and model mechanistic interpretability."
+      },
+      {
+        "handle": "GoogleDeepMind",
+        "name": "Google DeepMind",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Breakthrough science-led lab behind Gemini, AlphaFold, and reinforcement learning research."
+      },
+      {
+        "handle": "huggingface",
+        "name": "Hugging Face",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "The undisputed central hub and repository for the entire global open-source AI community."
+      },
+      {
+        "handle": "MetaAI",
+        "name": "Meta AI",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Crucial for tracking the open-weights ecosystem, particularly updates regarding the Llama family of models."
+      },
+      {
+        "handle": "MistralAI",
+        "name": "Mistral AI",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "European AI champion known for pushing dense, efficient, and highly performant open-weights models."
+      },
+      {
+        "handle": "MicrosoftFlip",
+        "name": "Microsoft AI",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Focuses on commercial product integrations, Windows Copilot architecture, and enterprise security."
+      },
+      {
+        "handle": "nvidia",
+        "name": "NVIDIA",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "The hardware engine behind the entire AI boom; essential for infrastructure scaling updates and GPU architecture news."
+      },
+      {
+        "handle": "cursor_u",
+        "name": "Cursor",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "The leading native AI code editor; highly useful for following cutting-edge agentic workflows applied directly to codebase context."
+      },
+      {
+        "handle": "cohere",
+        "name": "Cohere",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Enterprise-first LLM provider specialized in advanced RAG and multilingual search models."
+      },
+      {
+        "handle": "xai",
+        "name": "xAI",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Creators of the Grok models; useful for real-time data integration updates and high-compute cluster scaling news."
+      },
+      {
+        "handle": "Perplexity_AI",
+        "name": "Perplexity AI",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Tracks real-time answer engine integrations, conversational web search developments, and proactive discovery features."
+      }
+    ]
+  }
+}

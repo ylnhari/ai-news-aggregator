@@ -1,0 +1,79 @@
+# ============================================================
+# Verified sources (free, real data) — primary inputs
+# ============================================================
+sources:
+  rss:
+    enabled: true
+    feeds:
+      - name: "OpenAI News"
+        url: "https://openai.com/news/rss.xml"
+      - name: "Google DeepMind Blog"
+        url: "https://deepmind.google/blog/rss.xml"
+      - name: "Google AI Blog"
+        url: "https://blog.google/technology/ai/rss/"
+      - name: "Hugging Face Blog"
+        url: "https://huggingface.co/blog/feed.xml"
+      - name: "Simon Willison"
+        url: "https://simonwillison.net/atom/everything/"
+      # Add more feeds here — any RSS 2.0 or Atom URL works.
+
+  arxiv:
+    enabled: true
+    categories: ["cs.AI", "cs.CL", "cs.LG"]
+    max_results: 40
+
+  hackernews:
+    enabled: true
+    queries: ["AI", "LLM", "GPT", "Claude", "Gemini", "open source model"]
+    min_points: 30        # only stories with at least this many points
+
+# ============================================================
+# Social signals via Gemini search grounding — SUPPLEMENTARY.
+# X/Twitter has no free read API; these results come from LLM
+# web search and are UNVERIFIED (clearly labeled in the report).
+# Set enabled: false to skip and save quota.
+# ============================================================
+twitter:
+  enabled: true
+  # Number of days to look back
+  days_back: 1
+  # Model used for search grounding (must support google_search tool)
+  search_grounding_model: "gemini-3.1-flash-lite"
+  # Accounts per Gemini search call
+  search_batch_size: 25
+  # Pause between batches (free tier is 5-15 requests/minute)
+  batch_delay_seconds: 15
+
+# ============================================================
+# Gemini synthesis
+# ============================================================
+gemini:
+  # Real model IDs, tried in order; first available/under-quota wins.
+  # (Selection uses one models.list() call — no ping requests.)
+  model_candidates:
+    - "gemini-flash-latest"
+    - "gemini-3-flash-preview"
+    - "gemini-2.5-flash"
+    - "gemini-3.1-flash-lite"
+    - "gemini-2.5-flash-lite"
+    - "gemini-flash-lite-latest"
+  temperature: 0.4
+  max_tokens: 4000
+
+# ============================================================
+# Output
+# ============================================================
+pdf:
+  page_size: "A4"
+  margins: 72
+  include_timestamp: true
+  include_sources: true
+
+report:
+  title: "AI News Daily Digest"
+  top_items: 7
+
+output:
+  directory: "./reports"
+  filename_prefix: "ai_news_digest"
+  timestamp_format: "%Y%m%d_%H%M%S"
