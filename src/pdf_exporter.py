@@ -1,10 +1,10 @@
 """PDF export functionality for AI news reports."""
 
-from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, Image
-from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 from reportlab.lib import colors
 from datetime import datetime
 from pathlib import Path
@@ -247,72 +247,5 @@ class PDFExporter:
                 'type': 'body',
                 'text': current_paragraph.strip()
             })
-        
-        return sections
 
-    def export_tweets_summary_pdf(
-        self,
-        tweets: list,
-        output_filename: str = None
-    ) -> Path:
-        """
-        Export a summary of tweets as PDF.
-        
-        Args:
-            tweets: List of tweet dictionaries
-            output_filename: Optional output filename
-            
-        Returns:
-            Path to the generated PDF
-        """
-        if output_filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_filename = f"tweets_summary_{timestamp}.pdf"
-        
-        output_path = Path(self.config.output_dir) / output_filename
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        doc = SimpleDocTemplate(
-            str(output_path),
-            pagesize=A4,
-            rightMargin=72,
-            leftMargin=72,
-            topMargin=72,
-            bottomMargin=72
-        )
-        
-        story = []
-        
-        # Title
-        story.append(Paragraph("AI News - Tweets Summary", self.styles['CustomTitle']))
-        story.append(Spacer(1, 0.3 * inch))
-        
-        # Tweets table data
-        table_data = [["Author", "Tweet", "Engagement"]]
-        
-        for tweet in tweets[:20]:  # Limit to 20 tweets
-            author = tweet.get("author", "")
-            text = tweet.get("text", "")[:100] + "..." if len(tweet.get("text", "")) > 100 else tweet.get("text", "")
-            engagement = f"{tweet.get('likes', 0)} ❤️ {tweet.get('retweets', 0)} 🔄"
-            table_data.append([author, text, engagement])
-        
-        # Create table
-        table = Table(table_data, colWidths=[1.5*inch, 3.5*inch, 1.5*inch])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1DA1F2')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
-        ]))
-        
-        story.append(table)
-        
-        # Generate PDF
-        doc.build(story)
-        logger.info(f"Tweets summary PDF exported: {output_path}")
-        
-        return output_path
+        return sections

@@ -48,3 +48,6 @@ Thumbs.db
 # Machine-specific launcher scripts (kept locally, not committed)
 run.ps1
 activate.ps1
+
+# Personal quota-status snapshots
+gemini_models_status.csv

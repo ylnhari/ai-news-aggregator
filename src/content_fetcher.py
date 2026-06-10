@@ -14,10 +14,21 @@ from email.utils import parsedate_to_datetime
 from typing import List, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "ai-news-aggregator/0.2 (personal daily digest)"
+USER_AGENT = "ai-news-aggregator/1.0 (https://github.com/ylnhari/ai-news-aggregator)"
+
+# Shared session: connection pooling + automatic retries on transient failures
+_session = requests.Session()
+_session.mount("https://", HTTPAdapter(max_retries=Retry(
+    total=2, backoff_factor=1.0,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["GET"],
+)))
+_session.headers["User-Agent"] = USER_AGENT
 
 # XML namespaces used by Atom feeds (arXiv included)
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
@@ -70,7 +81,7 @@ def _strip_html(text: str) -> str:
 
 def _get(url: str, timeout: int = 20, **kwargs) -> Optional[requests.Response]:
     try:
-        resp = requests.get(url, timeout=timeout, headers={"User-Agent": USER_AGENT}, **kwargs)
+        resp = _session.get(url, timeout=timeout, **kwargs)
         resp.raise_for_status()
         return resp
     except Exception as e:
@@ -152,7 +163,8 @@ def fetch_rss_feeds(feeds: List[dict], days_back: int = 1) -> List[NewsItem]:
     all_items: List[NewsItem] = []
 
     for feed in feeds:
-        name, url = feed.get("name", url_name(feed)), feed.get("url", "")
+        url = feed.get("url", "")
+        name = feed.get("name") or url_name(feed)
         if not url:
             continue
         resp = _get(url)

@@ -1,0 +1,42 @@
+# Run the aggregator daily in the cloud — completely free.
+#
+# Setup (one time, after forking/cloning this repo to GitHub):
+#   1. Repo Settings -> Secrets and variables -> Actions -> New repository secret
+#      Name:  GEMINI_API_KEY
+#      Value: your free key from https://aistudio.google.com/
+#   2. Actions tab -> enable workflows.
+#
+# Reports are uploaded as workflow artifacts (kept 30 days) — download them
+# from the run page, no server or laptop needed.
+
+name: Daily AI News Report
+
+on:
+  schedule:
+    - cron: "30 6 * * *"   # 06:30 UTC daily — adjust to taste
+  workflow_dispatch:        # also allow manual runs from the Actions tab
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Generate report
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python src/main.py
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-news-report-${{ github.run_number }}
+          path: |
+            reports/*.pdf
+            reports/*.md
+          retention-days: 30

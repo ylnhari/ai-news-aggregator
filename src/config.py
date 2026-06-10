@@ -35,8 +35,8 @@ class Config:
         """Load settings from settings.yaml."""
         settings_path = self.config_dir / "settings.yaml"
         if settings_path.exists():
-            with open(settings_path, "r") as f:
-                return yaml.safe_load(f)
+            with open(settings_path, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
         return {}
 
     def _load_twitter_accounts(self) -> List[Dict[str, str]]:
@@ -45,7 +45,7 @@ class Config:
         accounts_list = []
 
         if accounts_path.exists():
-            with open(accounts_path, "r") as f:
+            with open(accounts_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 # Flatten the nested account structure
                 for category, accounts in data.get("accounts", {}).items():
@@ -77,3 +77,18 @@ class Config:
             else:
                 return default
         return current if current is not None else default
+
+    def validate(self) -> List[str]:
+        """Return a list of human-readable configuration problems (empty = OK)."""
+        problems = []
+        if not self.gemini_api_key:
+            problems.append(
+                "GEMINI_API_KEY is not set. Copy .env.example to .env and add your "
+                "free key from https://aistudio.google.com/"
+            )
+        elif self.gemini_api_key == "your_gemini_api_key_here":
+            problems.append("GEMINI_API_KEY still has the placeholder value from .env.example.")
+        feeds = self.get_setting("sources", "rss", "feeds", default=[])
+        if self.get_setting("sources", "rss", "enabled", default=True) and not feeds:
+            problems.append("RSS is enabled but sources.rss.feeds is empty in settings.yaml.")
+        return problems

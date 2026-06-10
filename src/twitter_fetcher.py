@@ -146,6 +146,13 @@ Do not fabricate items. If you found nothing for an account, omit it. Never inve
         for i, item in enumerate(raw_items):
             if not isinstance(item, dict) or not item.get("text"):
                 continue
+            # The URL comes from an LLM: only allow http(s) so nothing like
+            # javascript:/file: can end up as a clickable link in the PDF.
+            url = str(item.get("url", "")).strip()
+            if url and not url.startswith(("http://", "https://")):
+                logger.warning(f"  Batch {b_idx}: dropping non-http URL: {url[:80]}")
+                url = ""
+            item["url"] = url
             handle = str(item.get("author_handle", "")).lstrip("@")
             try:
                 published = datetime.fromisoformat(

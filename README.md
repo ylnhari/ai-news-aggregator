@@ -1,133 +1,179 @@
 # AI News Aggregator
 
-Daily AI brief from **free, verified sources** — official blogs (RSS), arXiv papers, and
-Hacker News — synthesized by Google Gemini (free tier) and exported as PDF + Markdown.
+> Your free, personal AI-industry analyst. Every day: one PDF brief covering everything
+> that matters in AI — official announcements, fresh research, and community buzz.
 
-Covers all major AI players: Anthropic, OpenAI, Google DeepMind, Meta AI, Microsoft AI,
-NVIDIA, Intel, Qualcomm, Hugging Face, AWS, and more.
+[![CI](https://img.shields.io/badge/CI-GitHub_Actions-blue)](.github/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 
-X/Twitter signals are included as a **supplementary, clearly-labeled unverified section**
-(via Gemini Google-Search grounding), because X no longer offers free read access and
-scrapers (snscrape etc.) are dead.
+**100% free to operate.** Every data source is free (RSS, arXiv API, Hacker News API),
+and synthesis runs on the free Gemini tier with automatic multi-model fallback so quota
+exhaustion never kills a run.
 
-## How it works
+## What you get
 
-```
-RSS blogs ─┐
-arXiv ─────┼─► dedupe/sort ─► Gemini synthesis ─► PDF + MD report
-HN ────────┘                       ▲
-X signals (unverified, optional) ──┘
-```
+A daily **PDF + Markdown brief** with:
+- **Executive Summary** — the 2-3 things a practitioner must know today
+- **Top Stories** — with context, why-it-matters, and source links
+- **Research Radar** — notable new arXiv papers, incremental ones filtered out
+- **Community Pulse** — what Hacker News is discussing
+- **Social Signals** — what AI leaders are posting (clearly labeled unverified)
+- **Action Items** — concrete things to read, try, or evaluate
 
-Gemini model selection is automatic: the pipeline lists all models available to your API
-key and tries them in preference order (newest/most capable first), falling through to the
-next on quota or availability errors — so the run succeeds even when individual model
-quotas are exhausted.
+## Sources (all free)
 
-## Setup
+| Type | Sources |
+|---|---|
+| Official blogs (RSS) | OpenAI, Google DeepMind, Google AI, Meta Engineering, Meta Newsroom, Microsoft Research, NVIDIA, Intel (×2), AWS ML, Hugging Face, Simon Willison |
+| Research | arXiv: cs.AI, cs.CL, cs.LG, cs.CV, cs.NE (50 newest papers) |
+| Community | Hacker News stories ≥30 points matching 11 AI queries |
+| Social (unverified) | 52 accounts — researchers, CEOs, labs — via Gemini web search |
+
+Anthropic and Qualcomm have no public RSS; they're covered via Hacker News queries and
+the social-signals accounts.
+
+## Quick start
 
 Requires Python 3.10+ and a free [Google AI Studio](https://aistudio.google.com/) API key.
 
 ```bash
-# Clone and enter the repo
 git clone <repo-url>
 cd ai-news-aggregator
 
-# Create and activate a virtual environment
 python -m venv .venv
 source .venv/bin/activate        # Linux / macOS
 # .venv\Scripts\Activate.ps1    # Windows PowerShell
 
-# Install dependencies
-pip install -e .
-# or with Poetry: poetry install
+pip install -r requirements.txt
 
-# Configure your API key
-cp .env.example .env
-# Edit .env and set GEMINI_API_KEY=<your key>
-```
+cp .env.example .env             # then put your GEMINI_API_KEY in .env
 
-## Run
-
-```bash
 python src/main.py
 ```
 
-Outputs land in `reports/` (`.pdf` + `.md`); raw fetched items are cached in `data/`.
+Reports land in `reports/` (`.pdf` + `.md`); raw fetched items are cached in `data/`.
+
+### CLI options
+
+```
+python src/main.py [--days-back N] [--no-social] [--output-dir DIR]
+                   [--keep-cache-days N] [--quiet]
+```
+
+- `--days-back N` — widen the lookback window (e.g. `7` for a weekly digest)
+- `--no-social` — skip the unverified social section (faster, saves quota)
+- `--keep-cache-days N` — auto-delete raw cache older than N days (default 14)
+
+## Run it free in the cloud (no laptop needed)
+
+Fork this repo, then:
+
+1. **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `GEMINI_API_KEY`, value: your free key
+2. Enable workflows in the **Actions** tab.
+
+[`daily-report.yml`](.github/workflows/daily-report.yml) runs every day at 06:30 UTC
+(or on demand via *Run workflow*) and uploads the PDF + Markdown as an artifact you can
+download from the run page. GitHub Actions is free for public repos.
 
 ## Configuration (`config/settings.yaml`)
 
-- `sources.rss.feeds` — add/remove any RSS or Atom feed (name + url)
-- `sources.arxiv.categories` — arXiv categories (default: cs.AI, cs.CL, cs.LG, cs.CV, cs.NE)
-- `sources.arxiv.max_results` — cap on papers per run (default 50)
-- `sources.hackernews` — search queries and minimum points threshold
-- `twitter.enabled` — set `false` to skip the unverified social section (saves quota)
-- `twitter.search_grounding_models` — ordered list of models to try for social-signals search
-- `gemini.model_candidates` — ordered list of models to try for synthesis
-- `gemini.max_tokens` — synthesis output length (default 8000)
-
-`config/twitter_accounts.json` — the accounts used for the social-signals search.
-
-## Model selection & quota
-
-A full run makes ~3 Gemini calls (social-signal batches + synthesis + one `models.list()`).
-Both synthesis and social-signals support **automatic model fallback**: if a model returns
-`429 / 404 / 503` the next candidate in the list is tried immediately.
-
-The default order (configurable in `settings.yaml`) is:
-
-| Purpose | Model order |
+| Setting | What it does |
 |---|---|
-| Synthesis | gemini-3-flash-preview → gemini-2.5-flash → gemini-flash-latest → gemini-3.1-flash-lite → … |
-| Social signals | gemini-flash-latest → gemini-3.1-flash-lite → gemini-3-flash-preview → gemini-2.5-flash → … |
+| `sources.rss.feeds` | Add/remove any RSS or Atom feed (name + url) |
+| `sources.arxiv.categories` | arXiv categories to poll |
+| `sources.arxiv.max_results` | Papers per run (default 50) |
+| `sources.hackernews.queries` | HN search terms |
+| `sources.hackernews.min_points` | Minimum story score (default 30) |
+| `twitter.enabled` | `false` to disable social signals entirely |
+| `twitter.search_grounding_models` | Ordered model list for social search |
+| `gemini.model_candidates` | Ordered model list for synthesis |
+| `gemini.max_tokens` | Synthesis output length (default 8000) |
+| `report.title` | Your brief's title |
 
-Models with `Supports Search Grounding: Yes` are required for social signals; synthesis
-has no such constraint. Run `python scripts/list_models.py` (if present) to refresh your
-local model status.
+`config/twitter_accounts.json` holds the social-signals account list — edit freely.
 
-## Scheduling (optional)
+## How model fallback works
 
-### Linux / macOS — cron
+The pipeline never depends on a single model:
+
+1. One `models.list()` call discovers what your key can access (free, no quota cost).
+2. The configured preference list is intersected with what's actually available.
+3. On any `429` (quota), `404` (removed model), or `503` (overloaded), the next
+   candidate is tried immediately. The run only fails if *every* model fails.
+
+Refresh your view of available models any time:
 
 ```bash
-# Run at 07:30 every day
-30 7 * * * cd /path/to/ai-news-aggregator && .venv/bin/python src/main.py >> logs/cron.log 2>&1
+python scripts/list_models.py
 ```
 
-### Windows — Task Scheduler
+## Architecture
 
+```
+RSS blogs ─┐
+arXiv ─────┼─► dedupe/sort ─► Gemini synthesis ─► PDF + MD report
+HN ────────┘                       ▲    (model fallback chain)
+X signals (unverified, optional) ──┘
+```
+
+```
+src/
+  config.py             # YAML + .env configuration, validation
+  content_fetcher.py    # RSS/Atom, arXiv, Hacker News (stdlib XML, retrying HTTP session)
+  twitter_fetcher.py    # Unverified social signals via Gemini search grounding
+  gemini_synthesizer.py # Daily-brief synthesis with multi-model fallback
+  pdf_exporter.py       # Markdown -> PDF (escaped; links/bold/bullets rendered)
+  main.py               # CLI + orchestration
+config/
+  settings.yaml         # All knobs
+  twitter_accounts.json # Accounts for social signals
+scripts/
+  list_models.py        # Show Gemini models available to your key
+tests/                  # pytest suite (parsing, escaping, config)
+```
+
+## Security notes
+
+- Scraped content is treated as untrusted: it's XML-escaped before PDF rendering, and
+  the synthesis prompt instructs the model to treat item text strictly as data
+  (prompt-injection hardening).
+- URLs returned by the LLM for social signals are validated to `http(s)` only before
+  they become clickable PDF links.
+- Your API key lives only in `.env` (gitignored) or a GitHub Actions secret.
+
+## Scheduling locally (optional)
+
+**Linux/macOS cron:**
+```bash
+30 7 * * * cd /path/to/ai-news-aggregator && .venv/bin/python src/main.py --quiet
+```
+
+**Windows Task Scheduler:**
 ```powershell
-$action  = New-ScheduledTaskAction -Execute "python" `
-             -Argument "src\main.py" `
+$action  = New-ScheduledTaskAction -Execute "python" -Argument "src\main.py" `
              -WorkingDirectory "C:\path\to\ai-news-aggregator"
 $trigger = New-ScheduledTaskTrigger -Daily -At 7:30AM
 Register-ScheduledTask -TaskName "AI News Daily Brief" -Action $action -Trigger $trigger
 ```
 
-## Project structure
-
-```
-src/
-  config.py             # YAML + .env configuration
-  content_fetcher.py    # RSS/Atom, arXiv, Hacker News (stdlib XML, no scraper deps)
-  twitter_fetcher.py    # Unverified social signals via Gemini search grounding
-  gemini_synthesizer.py # Daily-brief synthesis (google-genai SDK, multi-model fallback)
-  pdf_exporter.py       # Markdown -> PDF (links, bold, bullets rendered)
-  main.py               # Orchestration
-config/
-  settings.yaml         # All knobs
-  twitter_accounts.json # Accounts for social signals
-```
-
 ## Troubleshooting
 
-- **429 / quota errors** — both synthesis and social signals automatically try the next
-  model in the configured list; if all fail, lower `sources.arxiv.max_results`, set
-  `twitter.enabled: false`, or wait for the daily quota reset.
-- **Empty social section** — normal; grounding only returns what it actually finds, and
-  the model is instructed not to fabricate.
-- **A feed stopped working** — feeds occasionally move; remove or update the entry in
-  `settings.yaml`. Failing feeds are logged as warnings and skipped; the run continues.
-- **Model not found (404)** — the pipeline falls through to the next candidate
-  automatically. To add new models, append them to `gemini.model_candidates` in
-  `settings.yaml`.
+- **`Configuration problem: GEMINI_API_KEY ...`** — copy `.env.example` to `.env` and
+  add your key from [aistudio.google.com](https://aistudio.google.com/).
+- **429 / quota errors** — fallback handles these automatically; if every model is
+  exhausted, wait for the daily reset or set `twitter.enabled: false`.
+- **Empty social section** — normal; web-search grounding only returns what it finds,
+  and the model is instructed never to fabricate.
+- **A feed stopped working** — feeds move; failing feeds are logged and skipped, the
+  run continues. Update the URL in `settings.yaml` when convenient.
+
+## Contributing
+
+PRs welcome — especially new high-quality feed URLs, better prompts, and additional
+output formats (HTML email, Slack webhook, …). Run `pytest` before submitting.
+
+## License
+
+[MIT](LICENSE)
