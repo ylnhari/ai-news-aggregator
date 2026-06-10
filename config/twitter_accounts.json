@@ -310,6 +310,18 @@
         "name": "Perplexity AI",
         "category": "Essential Frontier Companies & Labs",
         "description": "Tracks real-time answer engine integrations, conversational web search developments, and proactive discovery features."
+      },
+      {
+        "handle": "IntelAI",
+        "name": "Intel AI",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Official Intel AI handle; covers Gaudi accelerators, OpenVINO, and on-device AI for data center and edge."
+      },
+      {
+        "handle": "Qualcomm",
+        "name": "Qualcomm",
+        "category": "Essential Frontier Companies & Labs",
+        "description": "Leading edge-AI chipmaker; essential for on-device AI, Snapdragon NPU developments, and mobile/PC AI news."
       }
     ]
   }

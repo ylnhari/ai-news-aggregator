@@ -29,17 +29,33 @@ logger = logging.getLogger(__name__)
 class SocialSignalsFetcher:
     """Fetch unverified social updates using Gemini Google Search grounding."""
 
+    # Default fallback list if not configured in settings.yaml
+    _DEFAULT_MODELS = [
+        "gemini-flash-latest",
+        "gemini-3.1-flash-lite",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-flash-lite-latest",
+    ]
+
     def __init__(self, config):
         self.config = config
         if not config.gemini_api_key:
             raise ValueError("Gemini API key not found. Please set GEMINI_API_KEY in .env.")
         self.client = genai.Client(api_key=config.gemini_api_key)
+        # Support both old single-model key and new list key
+        configured = self.config.get_setting("twitter", "search_grounding_models")
+        if not configured:
+            legacy = self.config.get_setting("twitter", "search_grounding_model")
+            configured = [legacy] if legacy else []
+        self.model_candidates: List[str] = configured or self._DEFAULT_MODELS
+        logger.info(f"Social signals model order: {self.model_candidates}")
 
     def fetch(self) -> List[NewsItem]:
         accounts = self.config.twitter_accounts
         days_back = self.config.days_back
-        model_name = self.config.get_setting(
-            "twitter", "search_grounding_model", default="gemini-flash-latest")
         batch_size = int(self.config.get_setting("twitter", "search_batch_size", default=25))
         delay = int(self.config.get_setting("twitter", "batch_delay_seconds", default=15))
 
@@ -47,11 +63,11 @@ class SocialSignalsFetcher:
         batches = [accounts[i:i + batch_size] for i in range(0, len(accounts), batch_size)]
         logger.info(
             f"Fetching social signals for {len(accounts)} accounts "
-            f"in {len(batches)} batch(es) via {model_name}")
+            f"in {len(batches)} batch(es)")
 
         for b_idx, batch in enumerate(batches, 1):
             try:
-                items.extend(self._fetch_batch(batch, days_back, model_name, b_idx))
+                items.extend(self._fetch_batch_with_fallback(batch, days_back, b_idx))
             except Exception as e:
                 logger.error(f"  Batch {b_idx} failed: {e}")
             if b_idx < len(batches):
@@ -59,6 +75,28 @@ class SocialSignalsFetcher:
 
         logger.info(f"Social signals fetched: {len(items)} (unverified)")
         return items
+
+    def _fetch_batch_with_fallback(self, batch: List[Dict], days_back: int,
+                                   b_idx: int) -> List[NewsItem]:
+        """Try each model in order, falling through on quota/availability errors."""
+        from google.genai import errors as genai_errors
+        last_error = None
+        for model_name in self.model_candidates:
+            try:
+                result = self._fetch_batch(batch, days_back, model_name, b_idx)
+                if model_name != self.model_candidates[0]:
+                    logger.info(f"  Batch {b_idx}: used fallback model {model_name}")
+                return result
+            except genai_errors.APIError as e:
+                last_error = e
+                if e.code in (429, 404, 503):
+                    logger.warning(f"  Batch {b_idx}: model {model_name} returned {e.code}; trying next")
+                    continue
+                raise
+            except Exception as e:
+                last_error = e
+                logger.warning(f"  Batch {b_idx}: model {model_name} failed ({e}); trying next")
+        raise RuntimeError(f"All social-signals models failed. Last error: {last_error}")
 
     def _fetch_batch(self, batch: List[Dict], days_back: int,
                      model_name: str, b_idx: int) -> List[NewsItem]:

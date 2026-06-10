@@ -5,12 +5,32 @@ sources:
   rss:
     enabled: true
     feeds:
+      # --- Major AI labs ---
+      # Note: Anthropic has no official RSS feed as of 2026; covered via HN + social signals.
       - name: "OpenAI News"
         url: "https://openai.com/news/rss.xml"
       - name: "Google DeepMind Blog"
         url: "https://deepmind.google/blog/rss.xml"
       - name: "Google AI Blog"
         url: "https://blog.google/technology/ai/rss/"
+      - name: "Meta Engineering Blog"
+        url: "https://engineering.fb.com/feed/"
+      - name: "Meta Newsroom"
+        url: "https://about.fb.com/feed/"
+      - name: "Microsoft Research"
+        url: "https://www.microsoft.com/en-us/research/feed/"
+      # --- Chip & hardware companies ---
+      - name: "NVIDIA AI Blog"
+        url: "https://developer.nvidia.com/blog/category/artificial-intelligence/feed/"
+      - name: "Intel Tech (Medium)"
+        url: "https://medium.com/feed/intel-tech"
+      - name: "Intel Newsroom"
+        url: "https://newsroom.intel.com/feed/"
+      # Note: Qualcomm has no public RSS feed; covered via HN + social signals.
+      # --- Cloud / infra ---
+      - name: "AWS Machine Learning Blog"
+        url: "https://aws.amazon.com/blogs/machine-learning/feed/"
+      # --- Community & independent ---
       - name: "Hugging Face Blog"
         url: "https://huggingface.co/blog/feed.xml"
       - name: "Simon Willison"
@@ -19,12 +39,23 @@ sources:
 
   arxiv:
     enabled: true
-    categories: ["cs.AI", "cs.CL", "cs.LG"]
-    max_results: 40
+    categories: ["cs.AI", "cs.CL", "cs.LG", "cs.CV", "cs.NE"]
+    max_results: 50
 
   hackernews:
     enabled: true
-    queries: ["AI", "LLM", "GPT", "Claude", "Gemini", "open source model"]
+    queries:
+      - "AI"
+      - "LLM"
+      - "GPT"
+      - "Claude"
+      - "Gemini"
+      - "open source model"
+      - "NVIDIA"
+      - "Anthropic"
+      - "Qualcomm"
+      - "Intel AI"
+      - "machine learning"
     min_points: 30        # only stories with at least this many points
 
 # ============================================================
@@ -37,8 +68,16 @@ twitter:
   enabled: true
   # Number of days to look back
   days_back: 1
-  # Model used for search grounding (must support google_search tool)
-  search_grounding_model: "gemini-3.1-flash-lite"
+  # Models tried in order for search-grounding calls (must support google_search tool).
+  # Falls back to next on 429/404/503. From models.list() cross-referenced with quota status.
+  search_grounding_models:
+    - "gemini-flash-latest"          # 15 RPM, 1500 RPD — start here (higher RPM)
+    - "gemini-3.1-flash-lite"        # 15 RPM, 250K RPD
+    - "gemini-3.1-flash-lite-preview" # 15 RPM, 250K RPD
+    - "gemini-3-flash-preview"       # 5 RPM, 250K RPD
+    - "gemini-2.5-flash"             # 5 RPM, 250K RPD
+    - "gemini-2.5-flash-lite"        # 5 RPM, 250K RPD
+    - "gemini-flash-lite-latest"     # 15 RPM, 1500 RPD — final fallback
   # Accounts per Gemini search call
   search_batch_size: 25
   # Pause between batches (free tier is 5-15 requests/minute)
@@ -48,17 +87,19 @@ twitter:
 # Gemini synthesis
 # ============================================================
 gemini:
-  # Real model IDs, tried in order; first available/under-quota wins.
+  # Models tried in order for the synthesis call; first available/under-quota wins.
   # (Selection uses one models.list() call — no ping requests.)
+  # Ordered: newest/most capable first; 250K-RPD models preferred over 1500-RPD ones.
   model_candidates:
-    - "gemini-flash-latest"
-    - "gemini-3-flash-preview"
-    - "gemini-2.5-flash"
-    - "gemini-3.1-flash-lite"
-    - "gemini-2.5-flash-lite"
-    - "gemini-flash-lite-latest"
+    - "gemini-3-flash-preview"       # 5 RPM, 250K RPD — newest available
+    - "gemini-2.5-flash"             # 5 RPM, 250K RPD
+    - "gemini-flash-latest"          # 15 RPM, 1500 RPD (higher RPM if 2.5 quota hit)
+    - "gemini-3.1-flash-lite"        # 15 RPM, 250K RPD
+    - "gemini-2.5-flash-lite"        # 5 RPM, 250K RPD
+    - "gemini-3.1-flash-lite-preview" # 15 RPM, 250K RPD
+    - "gemini-flash-lite-latest"     # 15 RPM, 1500 RPD — final fallback
   temperature: 0.4
-  max_tokens: 4000
+  max_tokens: 8000
 
 # ============================================================
 # Output
@@ -71,7 +112,7 @@ pdf:
 
 report:
   title: "AI News Daily Digest"
-  top_items: 7
+  top_items: 10
 
 output:
   directory: "./reports"
