@@ -1,7 +1,9 @@
 # Claude Instructions — ai-news-aggregator
 
+> **Setup:** copy `CLAUDE.local.md.example` → `CLAUDE.local.md` (gitignored, auto-loaded) and fill in your machine-local values. Personal/global preferences live in your user-level `~/.claude/CLAUDE.md`.
+
 ## Role
-Act as a Python backend engineer focused on cost-free, production-quality data pipelines. No flattery, no filler.
+Act as a Python backend engineer focused on cost-free, production-quality data pipelines.
 
 ## Context
 Daily AI news aggregator. Free-tier only — no paid APIs, ever.
@@ -35,28 +37,13 @@ tests/
 3. **Multi-model fallback is mandatory.** Model selection = one `models.list()` call intersected with `settings.yaml` preference list. Fall through on APIError codes 429/404/503.
 4. **XML-escape all external content** before passing to ReportLab (`xml.sax.saxutils.escape`).
 5. **No paid dependencies.** Check before adding anything to pyproject.toml.
-6. **`.env` is gitignored.** Never hardcode keys. Always read from `Config` class.
+6. **Read keys from the `Config` class.** (Global secret rules apply: see ~/.claude/CLAUDE.md.)
 
 ## Key Patterns
 
-```python
-# Correct SDK import
-from google import genai
-from google.genai import errors as genai_errors
-
-# Correct model selection (no ping storm)
-available = {m.name.split("/")[-1] for m in client.models.list()}
-candidates = [m for m in config_list if m in available]
-
-# Correct fallback
-for model in candidates:
-    try:
-        return client.models.generate_content(model=model, ...)
-    except genai_errors.APIError as e:
-        if e.code in (429, 404, 503):
-            continue
-        raise
-```
+- Use the `google-genai` SDK (`from google import genai`) — never `google-generativeai` (EOL).
+- Model selection = one `models.list()` call intersected with the `settings.yaml` preference list; fall through to the next model on `APIError` codes 429/404/503.
+- `settings.yaml` is the single source of truth for model lists and source configs.
 
 ## Credentials
 - `GEMINI_API_KEY` in `.env` (gitignored). Source: https://aistudio.google.com/

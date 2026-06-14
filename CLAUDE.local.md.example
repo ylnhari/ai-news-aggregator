@@ -1,0 +1,7 @@
+# Personal / machine-local — ai-news-aggregator
+# Copy this file to CLAUDE.local.md (gitignored) and fill in your values.
+# Claude Code auto-loads CLAUDE.local.md alongside CLAUDE.md.
+
+- Repo path: <absolute path to this repo on your machine>
+- GEMINI_API_KEY: in .env (gitignored) — never commit. Get one free at https://aistudio.google.com/
+- (optional) Any personal notes to Claude for this project.
