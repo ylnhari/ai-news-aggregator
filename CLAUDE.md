@@ -51,11 +51,10 @@ tests/
 
 ## Running
 ```bash
-python -m venv .venv && .venv\Scripts\Activate.ps1  # or activate.ps1
-pip install -r requirements.txt
-cp .env.example .env  # add GEMINI_API_KEY
-python src/main.py
-python src/main.py --no-social --days-back 3
+uv sync                                  # install deps (creates .venv automatically)
+cp .env.example .env                     # add GEMINI_API_KEY
+uv run python src/main.py
+uv run python src/main.py --no-social --days-back 3
 ```
 
 ## When editing
