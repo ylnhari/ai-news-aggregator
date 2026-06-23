@@ -1,0 +1,45 @@
+# EXAMPLE workflow — NOT active.
+#
+# GitHub only runs workflow files named *.yml / *.yaml inside .github/workflows/,
+# so this ".example" file never triggers. It's a ready-to-use template showing how
+# to run the aggregator in the cloud for free.
+#
+# To enable it:
+#   1. Rename this file to  daily-report.yml
+#   2. Repo Settings -> Secrets and variables -> Actions -> add repository secret
+#        Name:  GEMINI_API_KEY     Value: your free key from https://aistudio.google.com/
+#   3. Actions tab -> enable workflows.
+#   4. (Optional) Uncomment the `schedule:` block below to also run it daily.
+#
+# It runs manually by default (workflow_dispatch) — scheduling is opt-in.
+# Reports are uploaded as workflow artifacts (kept 30 days).
+
+name: Daily AI News Report
+
+on:
+  workflow_dispatch:          # manual runs from the Actions tab
+  # schedule:
+  #   - cron: "30 6 * * *"    # uncomment to also run daily at 06:30 UTC
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        run: uv sync
+      - name: Generate report
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: uv run python src/main.py
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-news-report-${{ github.run_number }}
+          path: |
+            reports/*.pdf
+            reports/*.md
+          retention-days: 30
