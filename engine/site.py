@@ -303,6 +303,27 @@ def _render_story(story):
     return (f'<article class="story"><h3>{head}</h3>{gist_html}{details}</article>')
 
 
+# Internal beat ids → reader-facing labels (the digest Markdown keeps the
+# internal names; only the HTML rendering translates).
+_BEAT_LABELS = {
+    "community-pulse": "From the community",
+    "momentum-signal": "Momentum",
+    "inference-serving": "Inference & serving",
+    "frontier-releases": "Frontier releases",
+    "open-weights": "Open weights",
+    "fine-tuning": "Fine-tuning",
+    "pricing-economics": "Pricing & economics",
+    "multimodal-generation": "Multimodal generation",
+    "mlops-llm": "MLOps",
+    "uncategorized": "Elsewhere",
+}
+
+
+def _beat_label(name):
+    key = (name or "").strip().lower()
+    return _BEAT_LABELS.get(key, key.replace("-", " ").capitalize())
+
+
 def _render_beats(beats, public=False, excluded=None):
     if not beats:
         return ""
@@ -328,7 +349,7 @@ def _render_beats(beats, public=False, excluded=None):
             continue
         rows += (
             '<div class="beat">'
-            f'<div class="beat-name">{_esc(b["name"])}</div>'
+            f'<div class="beat-name">{_esc(_beat_label(b["name"]))}</div>'
             f'<ul class="beat-items">{items}</ul></div>')
     if not rows:
         return ""
@@ -614,8 +635,12 @@ a:hover{text-decoration:underline;}
 @media (prefers-reduced-motion:reduce){
   .deeper>summary::before,.mesh>summary::before{transition:none;}
 }
-.src-list{list-style:none;margin:12px 0 0;padding:0;}
-.src{display:flex;align-items:baseline;gap:10px;padding:5px 0;flex-wrap:wrap;}
+.src-list{list-style:none;margin:12px 0 0;padding:0;counter-reset:src;}
+.src{display:flex;align-items:baseline;gap:10px;padding:5px 0 5px 26px;
+  flex-wrap:wrap;counter-increment:src;position:relative;}
+.src::before{content:counter(src) ".";position:absolute;left:0;top:5px;
+  font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:.7rem;
+  color:var(--muted);font-variant-numeric:tabular-nums;}
 .sid{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:.66rem;
   background:var(--line);color:var(--muted);padding:2px 6px;border-radius:5px;
   letter-spacing:.02em;white-space:nowrap;}
@@ -630,8 +655,11 @@ a:hover{text-decoration:underline;}
   background:var(--surface);border:1px solid var(--line);border-radius:6px;
   padding:2px 8px;display:inline-block;margin-bottom:8px;}
 .beat-items{list-style:none;margin:0;padding:0;}
-.beat-item{padding:5px 0;border-bottom:1px solid var(--line);
-  display:flex;gap:10px;align-items:baseline;justify-content:space-between;}
+.beat-item{padding:5px 0 5px 16px;border-bottom:1px solid var(--line);
+  display:flex;gap:10px;align-items:baseline;justify-content:space-between;
+  position:relative;}
+.beat-item::before{content:"\\25B8";position:absolute;left:0;top:5px;
+  color:var(--accent);font-size:.8rem;}
 .beat-item:last-child{border-bottom:none;}
 .beat-item a,.beat-item{max-width:68ch;}
 
