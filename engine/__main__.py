@@ -1,13 +1,15 @@
-"""CLI: python -m engine {collect|digest|run|prune|doctor}
+"""CLI: python -m engine {collect|digest|run|prune|doctor|site}
 
   collect   fetch every enabled source since its watermark; store new items.
   digest    build a Markdown digest from recently-fetched items (--hours window).
   run       collect, then digest this run's new items (the scheduled daily job).
   prune     drop full-detail items older than --days (retention; OPERATIONS.md).
   doctor    self-check: config, registry, DB, connectivity, per-source table.
+  site      render the HTML edition ("AI Signal") into signaldesk/site/.
 """
 
 import argparse
+import os
 import sys
 from datetime import timedelta
 
@@ -84,6 +86,22 @@ def cmd_doctor(cfg, args):
     return doctor_mod.run(cfg)
 
 
+def cmd_site(cfg, args):
+    print("== signaldesk engine: site (HTML edition) ==")
+    from .site import build_site
+    index_path, public_path, excluded = build_site(cfg)
+    for p in (index_path, public_path):
+        size = os.path.getsize(p)
+        print(f"  wrote {p} ({size:,} bytes)")
+    if excluded:
+        print(f"  public sanitizer excluded {len(excluded)} item(s):")
+        for e in excluded:
+            print(f"    - {e}")
+    else:
+        print("  public sanitizer excluded nothing this build.")
+    return index_path
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="engine", description=__doc__)
     parser.add_argument("--config", help="path to engine.config.json")
@@ -95,6 +113,7 @@ def main(argv=None):
     p = sub.add_parser("prune", help="drop items older than --days (retention)")
     p.add_argument("--days", type=int, default=90, help="retention window (default 90)")
     sub.add_parser("doctor", help="self-check config, registry, DB, connectivity")
+    sub.add_parser("site", help="render the HTML edition into signaldesk/site/")
 
     args = parser.parse_args(argv)
 
@@ -117,6 +136,8 @@ def main(argv=None):
         cmd_prune(cfg, args)
     elif args.command == "doctor":
         return cmd_doctor(cfg, args)
+    elif args.command == "site":
+        cmd_site(cfg, args)
     return 0
 
 

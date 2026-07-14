@@ -263,4 +263,14 @@ def build_digest(cfg, store, since):
         f.write(md)
 
     regenerate_index(cfg)
+
+    # Regenerate the HTML edition ("AI Signal") so the primary read surface
+    # stays current after every digest write. Lazy import avoids a cycle
+    # (site imports constants from this module).
+    try:
+        from . import site
+        site.build_site(cfg)
+    except Exception as e:  # never let site rendering fail a digest write
+        print(f"  [warn] site render failed: {e}")
+
     return out_path
