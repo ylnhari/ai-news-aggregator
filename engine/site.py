@@ -34,6 +34,9 @@ from .digest import META_RE, TOP_N  # noqa: F401  (TOP_N documents the top/rest 
 # own "open pitches" line uses a repo-relative path; the site needs an absolute
 # one for the artifact surface where relative links have no base).
 SIGNALDESK_REPO = "https://github.com/ylnhari/signaldesk"
+# Author attribution target for the public footer byline (attribution is welcome;
+# tailoring the system around the editor is not — signaldesk CLAUDE.md rule 1).
+PUBLIC_SITE_URL = "https://ylnhari.github.io"
 
 # --- public-edition sanitizer -------------------------------------------------
 # The public GitHub Pages edition drops the private radar: pitches, the
@@ -638,8 +641,11 @@ def _render_body(days, pitches_by_date, generated, public=False, excluded=None):
         day_html = ('<section class="day"><p class="passthrough">'
                     'No digests found yet.</p></section>')
     if public:
-        footer = ('<footer class="foot">AI SIGNAL '
-                  '&mdash; a daily curated brief on AI infrastructure</footer>')
+        # Attribution is welcome (author byline + profile link); what's barred is
+        # tailoring the SYSTEM around the editor - standing rule in signaldesk CLAUDE.md.
+        footer = (f'<footer class="foot"><a href="{PUBLIC_SITE_URL}">AI SIGNAL</a> '
+                  '&mdash; a daily curated brief on AI infrastructure '
+                  '&middot; curated by Hari Yelesetty</footer>')
     else:
         footer = (f'<footer class="foot">Generated {_esc(generated)} '
                   '&middot; signaldesk &middot; private</footer>')
