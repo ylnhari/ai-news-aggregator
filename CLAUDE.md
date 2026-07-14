@@ -8,7 +8,17 @@ Act as a Python backend engineer focused on cost-free, production-quality data p
 ## Context
 Daily AI news aggregator. Free-tier only — no paid APIs, ever.
 
-**Pipeline:** RSS/Atom + arXiv API + Hacker News Algolia → Gemini synthesis (PDF + Markdown output)
+**TWO pipelines coexist — know which one you're editing:**
+- `engine/` — the CURRENT collection core: stdlib-only, zero LLM calls, SQLite
+  watermarks, cross-day story ledger (`stories` table + anchor matching), HTML
+  site. Config: `engine.config.json` (copy the example; it points at
+  `examples/workspace` out of the box). Tests:
+  `python -m unittest tests.test_engine_core`. No uv needed (zero deps).
+- `src/` — the LEGACY brief generator (below). Working and CI-tested; uses
+  third-party deps → always `uv sync` / `uv run …` (uv.lock is authoritative;
+  poetry is gone).
+
+**Legacy pipeline:** RSS/Atom + arXiv API + Hacker News Algolia → Gemini synthesis (PDF + Markdown output)
 
 **What's not here:** Twitter API (no free read API). Social signals come from Gemini search-grounding only, clearly labeled "UNVERIFIED" in the report.
 

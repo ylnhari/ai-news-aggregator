@@ -57,3 +57,9 @@ activate.ps1
 
 # Personal quota-status snapshots
 gemini_models_status.csv
+
+# example workspace: registry+README ship, generated artifacts do not
+examples/workspace/data/
+examples/workspace/digests/
+examples/workspace/site/
+examples/workspace/pitches/

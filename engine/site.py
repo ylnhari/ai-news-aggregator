@@ -30,13 +30,9 @@ from .config import IST
 # re-deriving them, so the parser tracks the writer if it changes.
 from .digest import META_RE, TOP_N  # noqa: F401  (TOP_N documents the top/rest split)
 
-# The private config repo on GitHub — pitch files are linked here (the digest's
-# own "open pitches" line uses a repo-relative path; the site needs an absolute
-# one for the artifact surface where relative links have no base).
-SIGNALDESK_REPO = "https://github.com/ylnhari/signaldesk"
-# Author attribution target for the public footer byline (attribution is welcome;
-# tailoring the system around the editor is not — signaldesk CLAUDE.md rule 1).
-PUBLIC_SITE_URL = "https://ylnhari.github.io"
+# Personalization (footer byline, pitch-link base) comes from engine config —
+# the engine ships zero personal data. See engine.config.example.json:
+# public_footer_name / public_footer_url / workspace_repo_url.
 
 # --- public-edition sanitizer -------------------------------------------------
 # The public GitHub Pages edition drops the private radar: pitches, the
@@ -357,19 +353,23 @@ def _render_mesh(mesh):
             f'<div class="mesh-body">{body}</div></details>')
 
 
-def _render_urgent(pitch):
-    link = f"{SIGNALDESK_REPO}/blob/main/pitches/{pitch['file']}"
+def _render_urgent(pitch, link_base=""):
     why = f'<p class="why">{_esc(pitch["whynow"])}</p>' if pitch["whynow"] else ""
+    link_html = ""
+    if link_base:
+        link = f"{link_base}/{pitch['file']}"
+        link_html = (f'<a class="urgent-link" href="{_attr(link)}">'
+                     'View pitch file &rarr;</a>')
     return (
         '<aside class="urgent">'
         '<div class="eyebrow urgent-eyebrow">Open pitch</div>'
         f'<h3 class="urgent-title">{_esc(pitch["title"])}</h3>'
-        f'{why}'
-        f'<a class="urgent-link" href="{_attr(link)}">View pitch file &rarr;</a>'
+        f'{why}{link_html}'
         '</aside>')
 
 
-def _render_day(day, pitches_by_date, public=False, excluded=None):
+def _render_day(day, pitches_by_date, public=False, excluded=None,
+                pitch_link_base=""):
     date = day["date"] or "unknown-date"
     date_obj = day["date_obj"]
     if date_obj:
@@ -388,7 +388,7 @@ def _render_day(day, pitches_by_date, public=False, excluded=None):
     urgent = ""
     if not public:
         for p in pitches_by_date.get(date, []):
-            urgent += _render_urgent(p)
+            urgent += _render_urgent(p, pitch_link_base)
     elif excluded is not None:
         for p in pitches_by_date.get(date, []):
             excluded.append(f"open-pitch card '{p['title'][:60]}'")
@@ -697,15 +697,18 @@ _SCRIPT = """
 """
 
 
-def _footer(generated, public):
+def _footer(generated, public, cfg=None):
     if public:
-        # Attribution is welcome (author byline + profile link); what's barred is
-        # tailoring the SYSTEM around the editor - standing rule in signaldesk CLAUDE.md.
-        return (f'<footer class="foot"><a href="{PUBLIC_SITE_URL}">AI SIGNAL</a> '
-                '&mdash; a daily curated brief on AI infrastructure '
-                '&middot; curated by Hari Yelesetty</footer>')
+        name = getattr(cfg, "public_footer_name", "") if cfg else ""
+        url = getattr(cfg, "public_footer_url", "") if cfg else ""
+        tagline = (getattr(cfg, "public_footer_tagline", "") if cfg else "") \
+            or "a daily curated brief"
+        byline = f" &middot; curated by {_esc(name)}" if name else ""
+        mark = (f'<a href="{_attr(url)}">AI SIGNAL</a>' if url else "AI SIGNAL")
+        return (f'<footer class="foot">{mark} '
+                f'&mdash; {_esc(tagline)}{byline}</footer>')
     return (f'<footer class="foot">Generated {_esc(generated)} '
-            '&middot; signaldesk &middot; private</footer>')
+            '&middot; private edition</footer>')
 
 
 def _shell(body, public, title, script=""):
@@ -725,7 +728,7 @@ def _shell(body, public, title, script=""):
         f"{style}\n</head>\n<body>\n{body}\n{script}\n</body>\n</html>\n")
 
 
-def render_index_page(days, generated, public=False):
+def render_index_page(days, generated, public=False, cfg=None):
     """The INDEX: wordmark + month/week chips + one row per day linking to its
     days/YYYY-MM-DD.html page. Scales linearly in rows, not content."""
     wordmark = ('<div class="wordmark">AI SIGNAL '
@@ -735,12 +738,12 @@ def render_index_page(days, generated, public=False):
         f'<div class="topbar"><div class="topbar-inner">{wordmark}'
         f'{_render_chips(days)}</div></div>'
         f'<main class="wrap">{_render_index_rows(days)}'
-        f'{_footer(generated, public)}</main></div>')
+        f'{_footer(generated, public, cfg)}</main></div>')
     return _shell(body, public, "AI Signal", f"<script>{_SCRIPT}</script>")
 
 
 def render_day_page(day, prev_day, next_day, pitches_by_date, generated,
-                    public=False, excluded=None):
+                    public=False, excluded=None, cfg=None):
     """One digest day as its own page, with back-to-index + prev/next nav."""
     wordmark = ('<div class="wordmark"><a href="../index.html" '
                 'style="color:inherit">AI SIGNAL</a> '
@@ -752,12 +755,14 @@ def render_day_page(day, prev_day, next_day, pitches_by_date, generated,
     nav += (f'<a href="{_attr(next_day["date"])}.html">{_esc(next_day["date"])} &rarr;</a>'
             if next_day else '<span></span>')
     nav += '</nav>'
+    repo_url = getattr(cfg, "workspace_repo_url", "") if cfg else ""
+    link_base = f"{repo_url}/blob/main/pitches" if repo_url else ""
     body = (
         '<div class="ai-signal">'
         f'<div class="topbar"><div class="topbar-inner">{wordmark}</div></div>'
         '<main class="wrap">'
-        f'{_render_day(day, pitches_by_date, public=public, excluded=excluded)}'
-        f'{nav}{_footer(generated, public)}</main></div>')
+        f'{_render_day(day, pitches_by_date, public=public, excluded=excluded, pitch_link_base=link_base)}'
+        f'{nav}{_footer(generated, public, cfg)}</main></div>')
     return _shell(body, public, f'AI Signal — {day["date"]}')
 
 
@@ -790,7 +795,8 @@ def _collect_proposed_pitches(cfg):
     return by_date
 
 
-def _write_edition(root, days, pitches_by_date, generated, public, excluded):
+def _write_edition(root, days, pitches_by_date, generated, public, excluded,
+                   cfg=None):
     """Write index.html + days/*.html under `root`. Stale day pages (deleted
     digests) are removed — the days/ dir is fully generator-owned."""
     days_dir = os.path.join(root, "days")
@@ -802,13 +808,14 @@ def _write_edition(root, days, pitches_by_date, generated, public, excluded):
         prev_day = dated[i + 1] if i + 1 < len(dated) else None   # older
         next_day = dated[i - 1] if i > 0 else None                # newer
         page = render_day_page(d, prev_day, next_day, pitches_by_date,
-                               generated, public=public, excluded=excluded)
+                               generated, public=public, excluded=excluded,
+                               cfg=cfg)
         with open(os.path.join(days_dir, f'{d["date"]}.html'),
                   "w", encoding="utf-8") as f:
             f.write(page)
     index_path = os.path.join(root, "index.html")
     with open(index_path, "w", encoding="utf-8") as f:
-        f.write(render_index_page(days, generated, public=public))
+        f.write(render_index_page(days, generated, public=public, cfg=cfg))
     return index_path, len(dated)
 
 
@@ -827,8 +834,10 @@ def build_site(cfg):
     public_dir = os.path.join(site_dir, "public")
 
     index_path, _n = _write_edition(site_dir, days, pitches_by_date,
-                                    generated, public=False, excluded=None)
+                                    generated, public=False, excluded=None,
+                                    cfg=cfg)
     excluded = []
     public_path, _n = _write_edition(public_dir, days, pitches_by_date,
-                                     generated, public=True, excluded=excluded)
+                                     generated, public=True, excluded=excluded,
+                                     cfg=cfg)
     return index_path, public_path, excluded

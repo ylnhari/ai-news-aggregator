@@ -1,0 +1,61 @@
+{
+ "_comment": "Starter source registry — copy examples/workspace to your own private workspace and grow this. Every entry here is plain-HTTP (no browser, no credentials) so `python -m engine run` works on a fresh clone. Fields: tier (1=primary announcement, 2=curated secondary, 3=community), trust (0-1, feeds ranking), transport/handler (which fetcher runs), beats (default topic tags).",
+ "defaults": {
+  "poll": {"rss": "4h", "api": "4h", "html-diff": "6h"}
+ },
+ "sources": [
+  {
+   "id": "openai-news",
+   "tier": 1, "trust": 1.0, "latency": "hours",
+   "transport": "rss", "handler": "rss", "enabled": true,
+   "url": "https://openai.com/news/rss.xml",
+   "beats": ["frontier-releases"]
+  },
+  {
+   "id": "deepmind-blog",
+   "tier": 1, "trust": 1.0, "latency": "hours",
+   "transport": "rss", "handler": "rss", "enabled": true,
+   "url": "https://deepmind.google/blog/rss.xml",
+   "beats": ["frontier-releases", "research"]
+  },
+  {
+   "id": "hf-blog",
+   "tier": 2, "trust": 0.9, "latency": "hours",
+   "transport": "rss", "handler": "rss", "enabled": true,
+   "url": "https://huggingface.co/blog/feed.xml",
+   "beats": ["open-weights", "inference-serving"]
+  },
+  {
+   "id": "gh-releases",
+   "tier": 1, "trust": 1.0, "latency": "realtime",
+   "transport": "rss", "handler": "rss", "enabled": true,
+   "repos": ["vllm-project/vllm", "ggml-org/llama.cpp", "ollama/ollama"],
+   "repo_feed_template": "https://github.com/{repo}/releases.atom",
+   "beats": ["inference-serving"]
+  },
+  {
+   "id": "arxiv-efficiency",
+   "tier": 1, "trust": 0.9, "latency": "daily",
+   "transport": "api", "handler": "arxiv", "enabled": true,
+   "url": "http://export.arxiv.org/api/query",
+   "query": "cat:cs.LG AND (abs:\"quantization\" OR abs:\"LLM inference\")",
+   "beats": ["research", "inference-serving"]
+  },
+  {
+   "id": "hn-algolia",
+   "tier": 3, "trust": 0.7, "latency": "realtime",
+   "transport": "api", "handler": "hn", "enabled": true,
+   "url": "https://hn.algolia.com/api/v1/search_by_date",
+   "queries": ["OpenAI", "Anthropic", "vLLM", "open weights", "LLM inference"],
+   "threshold": 30,
+   "beats": ["community-pulse", "momentum-signal"]
+  },
+  {
+   "id": "simon-willison",
+   "tier": 2, "trust": 0.8, "latency": "hours",
+   "transport": "rss", "handler": "rss", "enabled": true,
+   "url": "https://simonwillison.net/atom/everything/",
+   "beats": ["community-pulse", "inference-serving"]
+  }
+ ]
+}

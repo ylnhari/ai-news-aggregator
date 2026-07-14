@@ -145,13 +145,51 @@ events, significance scoring, pitching) is deliberately left to a *later* LLM
 pass that lives outside this engine — the pre-rank is honest about being a first
 pass.
 
+### Engine quickstart (works on a fresh clone, ~2 minutes)
+
+```bash
+cp engine.config.example.json engine.config.json  # already points at examples/workspace
+python -m engine doctor     # config + registry + connectivity self-check
+python -m engine run        # collect from 7 starter sources -> digest + HTML site
+```
+
+Open `examples/workspace/site/index.html` in a browser — that's your first
+edition. Then copy `examples/workspace/` somewhere private, point
+`engine.config.json` at it, and grow `registry/sources.json`. The full CLI:
+`collect | digest | run | prune | doctor | site | stories | story-state`
+(`stories` browses the cross-day event ledger — see below).
+
+### What the engine tracks (and never re-reads)
+
+- **Watermarks**: every source fetches "since its last success" — missed days
+  self-heal, nothing is fetched twice.
+- **Identity**: an item is `sha1(canonical url)` — tracking-param and
+  trailing-slash copies dedup on insert.
+- **Stories**: a cross-day event ledger. "Gemma 4 released" today and a
+  "bug found in Gemma 4" article tomorrow link to ONE story via anchor tokens
+  (`gemma4`); the digest renders open threads as one-line recaps plus
+  "↩ UPDATE to evt-…" tags, so an LLM reader gets deltas — never history.
+
+### Using it with YOUR agent (Claude, or any LLM)
+
+The engine is the no-LLM half; the intended loop is: engine drafts, your agent
+judges. Point your agent at the generated digest (it carries a
+"judgment pass pending" footer) and have it rewrite the file in place, then
+sign the footer — the engine will never overwrite a judged digest (guard).
+Story states are refreshable via `python -m engine story-state evt-… "…"`.
+A few registry sources use `transport: browser` (bot-walled pages: X, some
+vendor blogs) — those are OPTIONAL and ship disabled; either have a
+browser-capable agent sweep them on a schedule and paste items in, or skip
+them entirely: every enabled starter source is plain HTTP.
+
 ### Open-source posture
 
-The engine ships **generic machinery only**. The source list, beat weights, and
-output location are read from config that points at **a private config repo** you
-supply — none of that lives here. This repo ships `engine.config.example.json`
-and `registry/` documentation only; your real registry and digests live in your
-own private repo.
+The engine ships **generic machinery only**. The source list, beat weights,
+output location — and even the public site's footer byline
+(`public_footer_name`/`public_footer_url`) — are read from your gitignored
+`engine.config.json`, which points at **a workspace directory you supply**
+(`examples/workspace/` to try it; your own private dir/repo for real use).
+None of your data or identity lives in this repo.
 
 ### Design
 

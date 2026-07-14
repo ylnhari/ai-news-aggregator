@@ -28,16 +28,33 @@ class Config:
     def __init__(self, data: dict, path: str):
         self._data = data
         self.path = path
-        self.signaldesk_dir = data.get("signaldesk_dir", "")
-        self.db_path = data.get("db_path", "")
+        # Relative paths resolve against the repo root, so the shipped example
+        # config ("./examples/workspace") works from a fresh clone regardless
+        # of the caller's cwd.
+        self.signaldesk_dir = self._abs(data.get("signaldesk_dir", ""))
+        self.db_path = self._abs(data.get("db_path", ""))
         self.window_hours_first_run = int(data.get("window_hours_first_run", 48))
         self.beat_weights = data.get("beat_weights", {})
         self.hf_keywords = [k.lower() for k in data.get("hf_keywords", [])]
         self.beat_keywords = data.get("beat_keywords", {})
         self.default_beat_weight = float(data.get("default_beat_weight", 0.5))
         self.hn_points_norm = float(data.get("hn_points_norm", 200.0))
+        # Public HTML edition byline (optional; empty = generic footer). The
+        # engine carries no personal data — attribution comes from config.
+        self.public_footer_name = data.get("public_footer_name", "")
+        self.public_footer_url = data.get("public_footer_url", "")
+        self.public_footer_tagline = data.get("public_footer_tagline", "")
+        # Optional: your workspace's git-host URL — private-edition pitch cards
+        # link into it; empty = no link, cards still render.
+        self.workspace_repo_url = data.get("workspace_repo_url", "")
 
-    # --- derived paths inside the private config repo -----------------------
+    @staticmethod
+    def _abs(p: str) -> str:
+        if not p or os.path.isabs(p):
+            return p
+        return os.path.normpath(os.path.join(_REPO_ROOT, p))
+
+    # --- derived paths inside the workspace (private repo or local dir) -----
     @property
     def registry_path(self) -> str:
         return os.path.join(self.signaldesk_dir, "registry", "sources.json")
