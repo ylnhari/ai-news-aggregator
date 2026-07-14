@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from . import beats
 from .registry import load_registry, enabled_sources
 from .store import Store
-from .transports import HANDLERS
+from .transports import HANDLERS, SkipSource
 
 
 def collect(cfg, store: Store = None, verbose: bool = True):
@@ -52,6 +52,12 @@ def collect(cfg, store: Store = None, verbose: bool = True):
             if verbose:
                 print(f"  [ok]   {src.id:22s} {new_count:3d} new "
                       f"({len(raw_items)} fetched, since {since:%Y-%m-%d %H:%M}Z)")
+        except SkipSource as e:  # expected, non-error skip (e.g. pending creds)
+            reason = f"{e}"[:300]
+            store.record_run(src.id, "skipped", reason)
+            per_source.append((src.id, "skipped", 0, reason))
+            if verbose:
+                print(f"  [skip] {src.id:22s} {reason}")
         except Exception as e:  # noqa: BLE001 — isolate per-source failures
             msg = f"{type(e).__name__}: {e}"[:300]
             store.record_run(src.id, "error", msg)

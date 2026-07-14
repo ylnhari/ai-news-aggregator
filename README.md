@@ -172,14 +172,22 @@ sources.json (private) ─► transports ─► SQLite store ─► beats ─►
   expansion), `hn` (HN Algolia search-by-date, points threshold), `hf` (HF new
   models, keyword-collapsed firehose), `arxiv` (Atom query in window),
   `greenhouse` (jobs JSON → item per *new* posting vs snapshot), `htmldiff`
-  (strip tags, extract link/title pairs, diff vs last snapshot → new links).
-  All requests use a real browser User-Agent and a 30s timeout. Transports that
-  need a real browser (Cloudflare/WAF-gated, JS-only) are marked unsupported in
-  the registry and handled elsewhere.
+  (strip tags, extract link/title pairs, diff vs last snapshot → new links),
+  `reddit` (official OAuth Data API, script-app flow: token via HTTP Basic then
+  `oauth.reddit.com/r/<sub>/top`, score threshold). All requests use a real
+  browser User-Agent (Reddit gets its own descriptive UA) and a 30s timeout.
+  Transports that need a real browser (Cloudflare/WAF-gated, JS-only) are marked
+  unsupported in the registry and handled elsewhere.
+- **Clean skips vs errors.** A transport that isn't configured yet (e.g. Reddit
+  with no `.env` creds) raises `SkipSource` — the collector records status
+  `skipped` ("credentials pending"), leaves the watermark untouched, and surfaces
+  it in the digest's Mesh-health footer. It never counts as an error or crash.
+- **Secrets** come from a gitignored `.env` at the repo root via a tiny stdlib
+  loader (`engine/util.py`; no `python-dotenv`). `os.environ` wins over the file.
 
 ```
 engine/
-  __main__.py     # CLI: collect | digest | run
+  __main__.py     # CLI: collect | digest | run | prune | doctor
   config.py       # engine.config.json loader (paths, weights, keyword maps)
   registry.py     # reads the private registry's machine-JSON (never the YAML)
   store.py        # SQLite: items, source_runs (watermarks), snapshots; 90-day prune
@@ -187,7 +195,9 @@ engine/
   beats.py        # keyword→beat tagger (additive to source-default beats)
   rank.py         # heuristic pre-rank + naive near-duplicate grouping
   digest.py       # Markdown digest (top stories + by-beat + mesh health) + INDEX
-  transports/     # rss, hn, hf, arxiv, greenhouse, htmldiff, http (shared fetch)
+  doctor.py       # self-check: config, registry, DB, connectivity, source table
+  util.py         # date/html/url helpers + stdlib .env loader
+  transports/     # rss, hn, hf, arxiv, greenhouse, htmldiff, reddit, http (shared)
 engine.config.example.json   # copy to engine.config.json (gitignored) and edit
 scripts/register_task.ps1    # register the daily Windows Scheduled Task
 ```
@@ -199,7 +209,14 @@ cp engine.config.example.json engine.config.json   # then edit paths + weights
 python -m engine collect     # fetch every enabled source since its watermark
 python -m engine digest      # build a digest from recently-fetched items (--hours N)
 python -m engine run         # collect + digest (the scheduled daily job)
+python -m engine prune       # drop items older than --days (default 90; retention)
+python -m engine doctor      # self-check: paths, registry parse, DB, a dry HEAD, source table
 ```
+
+Auth-backed transports read creds from a gitignored `.env` (copy `.env.example`).
+Reddit needs `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET` (a "script" app); blank =
+the source skips cleanly. Run `python -m engine doctor` to see per-source
+`enabled` / `disabled` / `pending-creds` at a glance.
 
 `engine.config.json` keys: `signaldesk_dir` (your private config repo),
 `db_path`, `window_hours_first_run`, `beat_weights`, `hf_keywords`,

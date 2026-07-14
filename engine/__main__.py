@@ -1,8 +1,10 @@
-"""CLI: python -m engine {collect|digest|run}
+"""CLI: python -m engine {collect|digest|run|prune|doctor}
 
   collect   fetch every enabled source since its watermark; store new items.
   digest    build a Markdown digest from recently-fetched items (--hours window).
   run       collect, then digest this run's new items (the scheduled daily job).
+  prune     drop full-detail items older than --days (retention; OPERATIONS.md).
+  doctor    self-check: config, registry, DB, connectivity, per-source table.
 """
 
 import argparse
@@ -13,12 +15,18 @@ from .config import load_config, ConfigError, IST
 from .store import Store, now_utc
 from .collect import collect as run_collect
 from .digest import build_digest, regenerate_index
+from . import doctor as doctor_mod
 
 
 def _summary(report):
     print()
     print(f"Collected: {report['total_new']} new item(s) across "
           f"{report['active_source_count']} active source(s); pruned {report['pruned']}.")
+    skipped = [(sid, e) for sid, st, n, e in report["per_source"] if st == "skipped"]
+    if skipped:
+        print(f"Skipped ({len(skipped)}):")
+        for sid, e in skipped:
+            print(f"  - {sid}: {e}")
     errs = [(sid, e) for sid, st, n, e in report["per_source"] if st == "error"]
     if errs:
         print(f"Errors ({len(errs)}):")
@@ -63,6 +71,19 @@ def cmd_run(cfg, args):
     return path
 
 
+def cmd_prune(cfg, args):
+    print("== signaldesk engine: prune ==")
+    store = Store(cfg.db_path)
+    n = store.prune_items(args.days)
+    store.close()
+    print(f"Pruned {n} item(s) older than {args.days} days.")
+    return n
+
+
+def cmd_doctor(cfg, args):
+    return doctor_mod.run(cfg)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="engine", description=__doc__)
     parser.add_argument("--config", help="path to engine.config.json")
@@ -71,11 +92,17 @@ def main(argv=None):
     d = sub.add_parser("digest", help="build a digest from recent items")
     d.add_argument("--hours", type=int, default=24, help="lookback window (default 24)")
     sub.add_parser("run", help="collect then digest this run's items")
+    p = sub.add_parser("prune", help="drop items older than --days (retention)")
+    p.add_argument("--days", type=int, default=90, help="retention window (default 90)")
+    sub.add_parser("doctor", help="self-check config, registry, DB, connectivity")
 
     args = parser.parse_args(argv)
+
+    # doctor validates paths itself (and reports nicely) — don't pre-validate.
     try:
         cfg = load_config(args.config)
-        cfg.validate()
+        if args.command != "doctor":
+            cfg.validate()
     except ConfigError as e:
         print(f"Config error: {e}", file=sys.stderr)
         return 2
@@ -86,6 +113,10 @@ def main(argv=None):
         cmd_digest(cfg, args)
     elif args.command == "run":
         cmd_run(cfg, args)
+    elif args.command == "prune":
+        cmd_prune(cfg, args)
+    elif args.command == "doctor":
+        return cmd_doctor(cfg, args)
     return 0
 
 

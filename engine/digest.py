@@ -143,10 +143,15 @@ def build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches):
         for sid, err in mesh["errored"]:
             L.append(f"- `{sid}` — {err}")
         L.append("")
+    if mesh.get("pending"):
+        L.append("**Credentials pending (skipped, mesh-visible):**")
+        for sid, reason in mesh["pending"]:
+            L.append(f"- `{sid}` — {reason}")
+        L.append("")
     if mesh["zero"]:
         L.append("**Returned zero in window:** " + ", ".join(f"`{s}`" for s in mesh["zero"]))
         L.append("")
-    if not mesh["errored"] and not mesh["zero"]:
+    if not mesh["errored"] and not mesh.get("pending") and not mesh["zero"]:
         L.append("All active sources returned items and none errored.")
         L.append("")
     L.append("_Draft quality: heuristic pre-rank — LLM judgment pass pending._")
@@ -163,6 +168,7 @@ def _mesh_health(cfg, store, items):
     contributing = {it["source_id"] for it in items}
 
     errored = []
+    pending = []  # sources that returned a clean SkipSource (e.g. pending creds)
     for sid in active_ids:
         row = store.conn.execute(
             "SELECT last_status, last_error FROM source_runs WHERE source_id=?",
@@ -170,9 +176,11 @@ def _mesh_health(cfg, store, items):
         ).fetchone()
         if row and row["last_status"] == "error":
             errored.append((sid, (row["last_error"] or "")[:200]))
-    errored_ids = {e[0] for e in errored}
-    zero = [sid for sid in active_ids if sid not in contributing and sid not in errored_ids]
-    return {"errored": errored, "zero": zero}
+        elif row and row["last_status"] == "skipped":
+            pending.append((sid, (row["last_error"] or "")[:200]))
+    handled_ids = {e[0] for e in errored} | {p[0] for p in pending}
+    zero = [sid for sid in active_ids if sid not in contributing and sid not in handled_ids]
+    return {"errored": errored, "pending": pending, "zero": zero}
 
 
 def _iso_week_monday(dt):

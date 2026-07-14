@@ -1,9 +1,58 @@
-"""Small shared helpers: date parsing, html stripping, canonical URLs."""
+"""Small shared helpers: date parsing, html stripping, canonical URLs, .env."""
 
+import os
 import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse, urlunparse
+
+
+# --- .env loader (stdlib; no python-dotenv dependency) ---------------------
+# The engine reads auth-backed source credentials from a gitignored .env at the
+# aggregator repo root (never from signaldesk). os.environ always wins over the
+# file so CI/shell secrets override it. Missing keys read as "" — callers treat
+# blank as "not configured" (a clean skip), never a crash.
+_ENV_CACHE = None
+
+
+def _repo_root() -> str:
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def load_env(path: str = None) -> dict:
+    """Parse KEY=VALUE lines from .env into a dict (cached for the default path).
+
+    Ignores blank lines and #-comments; strips one layer of surrounding quotes.
+    A missing file yields {} — the engine runs fine with no .env at all."""
+    global _ENV_CACHE
+    if path is None and _ENV_CACHE is not None:
+        return _ENV_CACHE
+    p = path or os.path.join(_repo_root(), ".env")
+    data = {}
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip()
+                if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
+                    val = val[1:-1]
+                data[key] = val
+    except OSError:
+        pass
+    if path is None:
+        _ENV_CACHE = data
+    return data
+
+
+def getenv(key: str, default: str = "") -> str:
+    """Config value: real environment first, then the .env file, then default."""
+    if os.environ.get(key):
+        return os.environ[key]
+    return load_env().get(key, default)
 
 
 def parse_date(value: str):
