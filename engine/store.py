@@ -57,10 +57,26 @@ CREATE TABLE IF NOT EXISTS snapshots (
     extracted       TEXT,
     taken_utc       TEXT
 );
+CREATE TABLE IF NOT EXISTS stories (
+    id            TEXT PRIMARY KEY,   -- evt-YYYYMMDD-slug
+    title         TEXT,               -- canonical headline (refreshed on updates)
+    fingerprint   TEXT,               -- space-joined salient title tokens (grows)
+    state         TEXT,               -- one-line current state (LLM-refinable)
+    opened_utc    TEXT,
+    last_seen_utc TEXT,
+    item_count    INTEGER DEFAULT 0
+);
 CREATE INDEX IF NOT EXISTS idx_items_source   ON items(source_id);
 CREATE INDEX IF NOT EXISTS idx_items_fetched  ON items(fetched_utc);
 CREATE INDEX IF NOT EXISTS idx_snap_source    ON snapshots(source_id);
+CREATE INDEX IF NOT EXISTS idx_stories_seen   ON stories(last_seen_utc);
 """
+
+# Columns added after first release — applied best-effort on open (SQLite has
+# no IF NOT EXISTS for columns).
+_MIGRATIONS = [
+    "ALTER TABLE items ADD COLUMN story_id TEXT",
+]
 
 
 class Store:
@@ -71,6 +87,11 @@ class Store:
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(_SCHEMA)
+        for mig in _MIGRATIONS:
+            try:
+                self.conn.execute(mig)
+            except sqlite3.OperationalError:
+                pass  # column already exists
         self.conn.commit()
 
     def close(self):
@@ -118,9 +139,11 @@ class Store:
         """Insert an item if new. Returns True if it was new (INSERTed).
 
         item keys: url, title, published_utc, excerpt, beats(list), extra(dict),
-        source_id. id is derived from the canonical url.
+        source_id. id is derived from the canonical url (tracking params,
+        fragments, trailing slashes stripped — so utm-tagged copies dedup).
         """
-        canonical = item["url"]
+        from .util import canonical_url
+        canonical = canonical_url(item["url"])
         item_id = sha1_id(canonical)
         exists = self.conn.execute(
             "SELECT 1 FROM items WHERE id=?", (item_id,)
@@ -176,7 +199,66 @@ class Store:
             "excerpt": r["excerpt"],
             "beats": json.loads(r["beats"] or "[]"),
             "extra": json.loads(r["extra"] or "{}"),
+            "story_id": r["story_id"] if "story_id" in r.keys() else None,
         }
+
+    # --- stories (cross-day event tracking; DESIGN.md L1 "EVENT", minimal) ---
+    def open_stories(self, days: int = 10):
+        """Stories seen within the last `days` — the active matching window
+        (research: story clusters cap out around ~10 days)."""
+        cutoff = iso(now_utc() - timedelta(days=days))
+        rows = self.conn.execute(
+            "SELECT * FROM stories WHERE last_seen_utc >= ? "
+            "ORDER BY last_seen_utc DESC", (cutoff,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def create_story(self, story_id: str, title: str, fingerprint: str,
+                     state: str = ""):
+        now = iso(now_utc())
+        self.conn.execute(
+            """INSERT OR IGNORE INTO stories
+               (id, title, fingerprint, state, opened_utc, last_seen_utc, item_count)
+               VALUES(?,?,?,?,?,?,0)""",
+            (story_id, title, fingerprint, state or title, now, now),
+        )
+
+    def touch_story(self, story_id: str, latest_title: str,
+                    new_tokens: str, added_items: int):
+        """An update landed: refresh last_seen, grow the fingerprint, bump count.
+        The title/state stay owned by the judgment pass (set_story_state)."""
+        row = self.conn.execute(
+            "SELECT fingerprint, item_count FROM stories WHERE id=?",
+            (story_id,),
+        ).fetchone()
+        if not row:
+            return
+        fp = set((row["fingerprint"] or "").split()) | set(new_tokens.split())
+        self.conn.execute(
+            "UPDATE stories SET last_seen_utc=?, fingerprint=?, item_count=? "
+            "WHERE id=?",
+            (iso(now_utc()), " ".join(sorted(fp)[:40]),
+             (row["item_count"] or 0) + added_items, story_id),
+        )
+
+    def set_story_state(self, story_id: str, state: str) -> bool:
+        cur = self.conn.execute(
+            "UPDATE stories SET state=? WHERE id=?", (state, story_id))
+        self.conn.commit()
+        return cur.rowcount > 0
+
+    def link_items_to_story(self, item_ids, story_id: str):
+        self.conn.executemany(
+            "UPDATE items SET story_id=? WHERE id=?",
+            [(story_id, iid) for iid in item_ids],
+        )
+
+    def story_items(self, story_id: str):
+        rows = self.conn.execute(
+            "SELECT * FROM items WHERE story_id=? ORDER BY fetched_utc",
+            (story_id,),
+        ).fetchall()
+        return [self._row_to_item(r) for r in rows]
 
     # --- snapshots (html-diff / greenhouse) ---------------------------------
     def last_snapshot(self, source_id: str):

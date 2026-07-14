@@ -1,13 +1,10 @@
 {
   "_comment": "Copy to engine.config.json (gitignored) and edit. 'signaldesk_dir' points at YOUR private config repo — the one holding registry/sources.json and receiving digests/. The engine ships this example only; the real registry + config live outside this open-source repo. Paths below are placeholders.",
-
   "signaldesk_dir": "C:\\path\\to\\your\\private-config-repo",
   "db_path": "C:\\path\\to\\your\\private-config-repo\\data\\signal.db",
-
   "window_hours_first_run": 48,
   "default_beat_weight": 0.5,
   "hn_points_norm": 200,
-
   "beat_weights": {
     "inference-serving": 1.0,
     "frontier-releases": 1.0,
@@ -18,27 +15,152 @@
     "mlops-llm": 0.7,
     "benchmarks": 0.7,
     "pricing-economics": 0.7,
-    "target-employers": 0.4,
     "community-pulse": 0.4,
     "momentum-signal": 0.4,
-    "rumors": 0.3
+    "rumors": 0.3,
+    "multimodal-generation": 0.8
   },
-
   "hf_keywords": [
-    "llama", "qwen", "deepseek", "mistral", "mixtral", "gemma", "phi", "glm",
-    "kimi", "yi", "command-r", "gpt", "moe", "reasoning", "instruct",
-    "gguf", "awq", "gptq", "quantiz", "vllm"
+    "llama",
+    "qwen",
+    "deepseek",
+    "mistral",
+    "mixtral",
+    "gemma",
+    "phi",
+    "glm",
+    "kimi",
+    "yi",
+    "command-r",
+    "gpt",
+    "moe",
+    "reasoning",
+    "instruct",
+    "gguf",
+    "awq",
+    "gptq",
+    "quantiz",
+    "vllm"
   ],
-
   "beat_keywords": {
-    "inference-serving": ["vllm", "kv cache", "kv-cache", "paged", "pagedattention", "serving", "sglang", "tensorrt", "ollama", "llama.cpp", "throughput", "continuous batching", "speculative decoding", "inference engine", "prefill", "decode"],
-    "fine-tuning": ["lora", "qlora", "peft", "unsloth", "fine-tune", "fine-tuning", "finetuning", "trl", "sft", "rlhf", "dpo", "adapter"],
-    "open-weights": ["open weights", "open-weight", "deepseek", "qwen", "kimi", "glm", "mistral", "llama", "gemma", "apache 2.0", "open source model", "open-source model"],
-    "frontier-releases": ["gpt-", "claude", "gemini", "grok", "flagship", "frontier model", "announces", "unveils", "launches", "new model"],
-    "hardware": ["gpu", "dgx", "nvidia", "amd", "h100", "h200", "b200", "blackwell", "tpu", "accelerator", "inference chip", "ai pc"],
-    "research": ["quantization", "arxiv", "attention", "distillation", "efficiency", "sparsity", "speculative"],
-    "benchmarks": ["benchmark", "leaderboard", "lmarena", "arena", "elo", "mmlu", "eval"],
-    "pricing-economics": ["pricing", "per token", "per-token", "cost per", "economics", "cheaper", "price cut"],
-    "target-employers": ["hiring", "we're hiring", "open role", "join our team", "careers"]
+    "inference-serving": [
+      "vllm",
+      "kv cache",
+      "kv-cache",
+      "paged",
+      "pagedattention",
+      "serving",
+      "sglang",
+      "tensorrt",
+      "ollama",
+      "llama.cpp",
+      "throughput",
+      "continuous batching",
+      "speculative decoding",
+      "inference engine",
+      "prefill",
+      "decode"
+    ],
+    "fine-tuning": [
+      "lora",
+      "qlora",
+      "peft",
+      "unsloth",
+      "fine-tune",
+      "fine-tuning",
+      "finetuning",
+      "trl",
+      "sft",
+      "rlhf",
+      "dpo",
+      "adapter"
+    ],
+    "open-weights": [
+      "open weights",
+      "open-weight",
+      "deepseek",
+      "qwen",
+      "kimi",
+      "glm",
+      "mistral",
+      "llama",
+      "gemma",
+      "apache 2.0",
+      "open source model",
+      "open-source model"
+    ],
+    "frontier-releases": [
+      "gpt-",
+      "claude",
+      "gemini",
+      "grok",
+      "flagship",
+      "frontier model",
+      "announces",
+      "unveils",
+      "launches",
+      "new model"
+    ],
+    "hardware": [
+      "gpu",
+      "dgx",
+      "nvidia",
+      "amd",
+      "h100",
+      "h200",
+      "b200",
+      "blackwell",
+      "tpu",
+      "accelerator",
+      "inference chip",
+      "ai pc"
+    ],
+    "research": [
+      "quantization",
+      "arxiv",
+      "attention",
+      "distillation",
+      "efficiency",
+      "sparsity",
+      "speculative",
+      "breakthrough",
+      "world model",
+      "agi",
+      "reasoning model"
+    ],
+    "benchmarks": [
+      "benchmark",
+      "leaderboard",
+      "lmarena",
+      "arena",
+      "elo",
+      "mmlu",
+      "eval"
+    ],
+    "pricing-economics": [
+      "pricing",
+      "per token",
+      "per-token",
+      "cost per",
+      "economics",
+      "cheaper",
+      "price cut"
+    ],
+    "multimodal-generation": [
+      "text-to-video",
+      "video model",
+      "video generation",
+      "veo",
+      "sora",
+      "text-to-speech",
+      "tts",
+      "audio model",
+      "voice model",
+      "music generation",
+      "text-to-image",
+      "image generation",
+      "diffusion model",
+      "multimodal"
+    ]
   }
 }

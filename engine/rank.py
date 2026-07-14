@@ -23,6 +23,21 @@ def _tokens(title: str):
             if t not in _STOP and len(t) > 2}
 
 
+# "Gemma 4" / "GPT-5" / "Llama 3.1" → gemma4 / gpt5 / llama3.1 — the named
+# release is the strongest signal that two headlines are the same story, even
+# when every other word differs ("X released" vs "bug found in X").
+_ANCHOR_RE = re.compile(r"\b([a-z][a-z]{2,})[\s\-]?v?(\d+(?:\.\d+)?)\b")
+_ANCHOR_STOP = _STOP | {"top", "best", "part", "year", "week", "day", "step"}
+
+
+def _anchors(title: str):
+    out = set()
+    for name, num in _ANCHOR_RE.findall((title or "").lower()):
+        if name not in _ANCHOR_STOP:
+            out.add(f"{name}{num}")
+    return out
+
+
 def _root_domain(url: str) -> str:
     host = urlparse(url or "").netloc.lower()
     if host.startswith("www."):
@@ -63,6 +78,7 @@ def rank_and_group(items, trust_by_source: dict, cfg):
     for it in items:
         it["_score"] = score_item(it, trust_by_source.get(it["source_id"], 0.5), cfg)
         it["_tokens"] = _tokens(it.get("title", ""))
+        it["_anchors"] = _anchors(it.get("title", ""))
         it["_root"] = _root_domain(it.get("url", ""))
 
     n = len(items)
@@ -86,6 +102,8 @@ def rank_and_group(items, trust_by_source: dict, cfg):
                 union(i, j)
             elif items[i]["_root"] and items[i]["_root"] == items[j]["_root"] and jac > 0.3:
                 union(i, j)
+            elif (items[i]["_anchors"] & items[j]["_anchors"]) and jac > 0.15:
+                union(i, j)  # same named release, cross-source echo
 
     clusters = {}
     for i in range(n):

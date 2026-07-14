@@ -1,11 +1,13 @@
-"""CLI: python -m engine {collect|digest|run|prune|doctor|site}
+"""CLI: python -m engine {collect|digest|run|prune|doctor|site|stories|story-state}
 
-  collect   fetch every enabled source since its watermark; store new items.
-  digest    build a Markdown digest from recently-fetched items (--hours window).
-  run       collect, then digest this run's new items (the scheduled daily job).
-  prune     drop full-detail items older than --days (retention; OPERATIONS.md).
-  doctor    self-check: config, registry, DB, connectivity, per-source table.
-  site      render the HTML edition ("AI Signal") into signaldesk/site/.
+  collect     fetch every enabled source since its watermark; store new items.
+  digest      build a Markdown digest from recently-fetched items (--hours window).
+  run         collect, then digest this run's new items (the scheduled daily job).
+  prune       drop full-detail items older than --days (retention; OPERATIONS.md).
+  doctor      self-check: config, registry, DB, connectivity, per-source table.
+  site        render the HTML edition ("AI Signal") into signaldesk/site/.
+  stories     list tracked events (--days window; --id evt-x shows its items).
+  story-state set an event's one-line state (the judgment pass refines these).
 """
 
 import argparse
@@ -86,6 +88,37 @@ def cmd_doctor(cfg, args):
     return doctor_mod.run(cfg)
 
 
+def cmd_stories(cfg, args):
+    store = Store(cfg.db_path)
+    if args.id:
+        items = store.story_items(args.id)
+        row = store.conn.execute("SELECT * FROM stories WHERE id=?",
+                                 (args.id,)).fetchone()
+        if not row:
+            print(f"No story {args.id}")
+            store.close()
+            return 1
+        print(f"{row['id']}\n  state: {row['state']}\n  opened: "
+              f"{(row['opened_utc'] or '')[:10]}  last seen: "
+              f"{(row['last_seen_utc'] or '')[:10]}  items: {row['item_count']}")
+        for it in items:
+            print(f"  - [{it['source_id']}] {it['title'][:90]}\n    {it['url']}")
+    else:
+        for st in store.open_stories(days=args.days):
+            print(f"{st['id']}  ({(st['last_seen_utc'] or '')[:10]}, "
+                  f"{st['item_count']} items)\n  {st['state']}")
+    store.close()
+    return 0
+
+
+def cmd_story_state(cfg, args):
+    store = Store(cfg.db_path)
+    ok = store.set_story_state(args.id, args.state)
+    store.close()
+    print("updated" if ok else f"no story {args.id}")
+    return 0 if ok else 1
+
+
 def cmd_site(cfg, args):
     print("== signaldesk engine: site (HTML edition) ==")
     from .site import build_site
@@ -114,6 +147,12 @@ def main(argv=None):
     p.add_argument("--days", type=int, default=90, help="retention window (default 90)")
     sub.add_parser("doctor", help="self-check config, registry, DB, connectivity")
     sub.add_parser("site", help="render the HTML edition into signaldesk/site/")
+    st = sub.add_parser("stories", help="list tracked events (cross-day ledger)")
+    st.add_argument("--days", type=int, default=30, help="lookback (default 30)")
+    st.add_argument("--id", help="show one story with its linked items")
+    ss = sub.add_parser("story-state", help="set an event's one-line state")
+    ss.add_argument("id")
+    ss.add_argument("state")
 
     args = parser.parse_args(argv)
 
@@ -138,6 +177,10 @@ def main(argv=None):
         return cmd_doctor(cfg, args)
     elif args.command == "site":
         cmd_site(cfg, args)
+    elif args.command == "stories":
+        return cmd_stories(cfg, args)
+    elif args.command == "story-state":
+        return cmd_story_state(cfg, args)
     return 0
 
 

@@ -14,10 +14,14 @@ from datetime import datetime, timedelta, timezone
 
 from .config import IST
 from . import rank
+from . import stories as stories_mod
 from .registry import load_registry, enabled_sources
 from .store import parse_iso
 
 TOP_N = 7
+MAX_DEEPER_LINKS = 12     # cap the per-story "Go deeper" list (viral clusters)
+MAX_BEAT_GROUPS = 40      # cap the By-beat tail (backlog dumps after outages)
+PENDING_MARKER = "LLM judgment pass pending"
 META_RE = re.compile(r"<!--\s*meta:\s*items=(\d+)\s+groups=(\d+)\s+top=\"(.*?)\"\s*-->")
 
 
@@ -71,7 +75,8 @@ def _group_source_ids(group):
     return sorted({it["source_id"] for it in group["items"]})
 
 
-def build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches):
+def build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches,
+                   open_stories=None):
     date_str = ist_dt.strftime("%Y-%m-%d")
     source_count = len({it["source_id"] for it in items})
     top = groups[:TOP_N]
@@ -94,6 +99,22 @@ def build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches):
         L.append("**Open pitches:** none proposed.")
     L.append("")
 
+    # --- Story threads (the cross-day event ledger, delta-only recap) ---
+    if open_stories:
+        touched = {g["story"]["id"] for g in groups
+                   if g.get("story") and g["story"]["status"] == "update"}
+        L.append("## Story threads")
+        L.append("")
+        L.append("_Open events, last 10 days — one line each; full history "
+                 "stays in the store, never re-read. • = updated this run._")
+        L.append("")
+        for st in open_stories[:15]:
+            mark = "•" if st["id"] in touched else "·"
+            seen = (st["last_seen_utc"] or "")[:10]
+            L.append(f"- {mark} `{st['id']}` — {st['state']} "
+                     f"(last seen {seen}, {st['item_count']} items)")
+        L.append("")
+
     # --- Top stories ---
     L.append("## Top stories")
     L.append("")
@@ -104,14 +125,24 @@ def build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches):
         primary = g["primary"]
         L.append(f"### {g['headline']}")
         L.append("")
+        story = g.get("story")
+        if story and story["status"] == "update":
+            L.append(f"↩ UPDATE to `{story['id']}` (first seen {story['opened']}, "
+                     f"{story['prior_items']} prior items) — prior state: "
+                     f"{story['state']}")
+            L.append("")
         L.append(_gist(primary))
         L.append("")
         L.append("<details><summary>Go deeper</summary>")
         L.append("")
-        for it in g["items"]:
+        for it in g["items"][:MAX_DEEPER_LINKS]:
             ts = _fmt_ts(it.get("published_utc") or it.get("fetched_utc") or "")
             title = it.get("title") or it.get("url")
             L.append(f"- `{it['source_id']}` · [{title}]({it['url']}) — {ts}")
+        overflow = len(g["items"]) - MAX_DEEPER_LINKS
+        if overflow > 0:
+            L.append(f"- …and {overflow} more corroborating link(s) (stored, "
+                     f"query the engine by story id)")
         L.append("")
         L.append("</details>")
         L.append("")
@@ -120,6 +151,7 @@ def build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches):
     if rest:
         L.append("## By beat")
         L.append("")
+        shown = 0
         by_beat = {}
         for g in rest:
             beat = _primary_beat(g["primary"], cfg)
@@ -127,12 +159,26 @@ def build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches):
         # order beats by weight desc
         for beat in sorted(by_beat, key=lambda b: cfg.beat_weights.get(b, cfg.default_beat_weight),
                            reverse=True):
+            if shown >= MAX_BEAT_GROUPS:
+                break
             L.append(f"### {beat}")
             L.append("")
             for g in by_beat[beat]:
+                if shown >= MAX_BEAT_GROUPS:
+                    break
                 p = g["primary"]
                 title = p.get("title") or p.get("url")
-                L.append(f"- {title} — [{p['source_id']}]({p['url']})")
+                tag = ""
+                if g.get("story") and g["story"]["status"] == "update":
+                    tag = f" ↩ `{g['story']['id']}`"
+                L.append(f"- {title} — [{p['source_id']}]({p['url']}){tag}")
+                shown += 1
+            L.append("")
+        hidden = len(rest) - shown
+        if hidden > 0:
+            L.append(f"_…{hidden} more low-ranked group(s) stored but not shown "
+                     f"(backlog cap {MAX_BEAT_GROUPS}) — they remain queryable "
+                     f"in the engine store._")
             L.append("")
 
     # --- Mesh health footer ---
@@ -255,10 +301,31 @@ def build_digest(cfg, store, since):
     open_pitches = _open_pitches(cfg.pitches_dir)
 
     ist_dt = _ist_now()
-    md = build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches)
+    date_str = ist_dt.strftime("%Y-%m-%d")
 
     os.makedirs(cfg.digests_dir, exist_ok=True)
-    out_path = os.path.join(cfg.digests_dir, f"{ist_dt.strftime('%Y-%m-%d')}.md")
+    out_path = os.path.join(cfg.digests_dir, f"{date_str}.md")
+
+    # Guard (ROADMAP known gap, now closed): NEVER clobber a same-day digest
+    # that has already been through the LLM judgment pass — its footer no
+    # longer carries the pending marker. New items stay in the store; the
+    # next day's run picks the world up from there.
+    if os.path.exists(out_path):
+        try:
+            with open(out_path, "r", encoding="utf-8") as f:
+                existing = f.read()
+        except OSError:
+            existing = ""
+        if existing and PENDING_MARKER not in existing:
+            print(f"  [guard] {os.path.basename(out_path)} is already judged — "
+                  f"not overwriting. {len(items)} item(s) stored for the next run.")
+            return None
+
+    # Cross-day event ledger: link groups to open stories / open new ones.
+    open_stories = stories_mod.assign_stories(store, groups, TOP_N, date_str)
+
+    md = build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches,
+                        open_stories=open_stories)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(md)
 

@@ -24,12 +24,23 @@ def _open(url: str, accept: str = None):
     return urllib.request.urlopen(req, timeout=TIMEOUT)
 
 
-def get_bytes(url: str, accept: str = None) -> bytes:
-    with _open(url, accept) as resp:
-        data = resp.read()
-        if resp.headers.get("Content-Encoding") == "gzip":
-            data = gzip.GzipFile(fileobj=io.BytesIO(data)).read()
-        return data
+def get_bytes(url: str, accept: str = None, retries: int = 1) -> bytes:
+    """One automatic retry on timeout — slow-but-healthy APIs (arXiv) time out
+    transiently; a hard HTTP error still raises immediately."""
+    attempt = 0
+    while True:
+        try:
+            with _open(url, accept) as resp:
+                data = resp.read()
+                if resp.headers.get("Content-Encoding") == "gzip":
+                    data = gzip.GzipFile(fileobj=io.BytesIO(data)).read()
+                return data
+        except (TimeoutError, urllib.error.URLError) as e:
+            is_timeout = isinstance(e, TimeoutError) or \
+                isinstance(getattr(e, "reason", None), TimeoutError)
+            if not is_timeout or attempt >= retries:
+                raise
+            attempt += 1
 
 
 def get_text(url: str, accept: str = None, encoding: str = "utf-8") -> str:
