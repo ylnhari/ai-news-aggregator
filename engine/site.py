@@ -41,7 +41,6 @@ SIGNALDESK_REPO = "https://github.com/ylnhari/signaldesk"
 # lives in the generator (a flag), never a hand-maintained copy of the template.
 CAREERS_PREFIX = "careers-"
 TARGET_BEATS = {"target-employers", "target employers"}
-PUBLIC_SITE_URL = "https://ylnhari.github.io"
 
 
 def _is_careers(sid):
@@ -639,9 +638,8 @@ def _render_body(days, pitches_by_date, generated, public=False, excluded=None):
         day_html = ('<section class="day"><p class="passthrough">'
                     'No digests found yet.</p></section>')
     if public:
-        footer = (f'<footer class="foot"><a href="{PUBLIC_SITE_URL}">AI SIGNAL</a> '
-                  '&mdash; a daily curated brief on AI infrastructure '
-                  '&middot; curated by Hari Yelesetty</footer>')
+        footer = ('<footer class="foot">AI SIGNAL '
+                  '&mdash; a daily curated brief on AI infrastructure</footer>')
     else:
         footer = (f'<footer class="foot">Generated {_esc(generated)} '
                   '&middot; signaldesk &middot; private</footer>')
