@@ -1,17 +1,17 @@
 """Site builder — the HTML edition of the signaldesk digest ("AI Signal").
 
 Parses every `digests/YYYY-MM-DD.md` (the exact Markdown that `engine/digest.py`
-writes) plus any `pitches/*.md` carrying `status: proposed`, and renders two
-self-contained artifacts into `signaldesk/site/`:
+writes) plus any `pitches/*.md` carrying `status: proposed`, and renders a
+MULTI-PAGE site into `signaldesk/site/` (private) and `site/public/`
+(sanitized GitHub Pages edition):
 
-  - index.html    a full standalone page (doctype/html/head/body), openable
-                  via file:// on a laptop.
-  - artifact.html the SAME page as a body-content-only fragment (no wrapper
-                  tags; inline <title> + one <style> + one <script>), for
-                  publishing as a claude.ai artifact (which supplies its own
-                  <!doctype>/<head>/<body> skeleton).
+  - index.html            the INDEX: one line per day (date · top story ·
+                          counts), month/week filter chips, newest first —
+                          stays lightweight forever (365 days ≈ 365 rows).
+  - days/YYYY-MM-DD.html  one self-contained page per digest day, with
+                          prev/next navigation and a back-to-index link.
 
-Both share ONE renderer; only the outer shell differs. Zero external requests:
+Editions share ONE renderer; a `public` flag sanitizes. Zero external requests:
 no CDNs, no webfonts, no remote images — system font stacks and inline CSS/JS
 only. The Markdown stays the record; this is the primary READ surface.
 
@@ -438,6 +438,45 @@ def _render_day(day, pitches_by_date, public=False, excluded=None):
         '</section>')
 
 
+def _day_headline(day):
+    """Best one-line headline for the index row."""
+    if day["meta"] and day["meta"].get("top"):
+        return day["meta"]["top"]
+    if day["top"]:
+        return day["top"][0]["headline"]
+    return "(no stories)"
+
+
+def _short_stats(day):
+    if day["meta"]:
+        return f'{day["meta"]["items"]} items · {day["meta"]["groups"]} groups'
+    return day["stats"][:60] if day["stats"] else ""
+
+
+def _render_index_rows(days):
+    """One anchor row per day, newest first, carrying month/week data attrs
+    for the chip filter. Links are relative: days/YYYY-MM-DD.html."""
+    rows = ""
+    for d in days:
+        if not d["date_obj"]:
+            continue
+        date_obj = d["date_obj"]
+        pretty = date_obj.strftime("%a, %b %-d, %Y") if os.name != "nt" \
+            else date_obj.strftime("%a, %b %#d, %Y")
+        mk = date_obj.strftime("%Y-%m")
+        wk = _week_monday(date_obj).strftime("%Y-%m-%d")
+        rows += (
+            f'<a class="idx-row" href="days/{_attr(d["date"])}.html" '
+            f'data-month="{_attr(mk)}" data-week="{_attr(wk)}">'
+            f'<span class="idx-date">{_esc(pretty)}</span>'
+            f'<span class="idx-head">{_esc(_day_headline(d))}</span>'
+            f'<span class="idx-stats">{_esc(_short_stats(d))}</span>'
+            '</a>')
+    if not rows:
+        rows = '<p class="passthrough">No digests yet.</p>'
+    return f'<div class="idx">{rows}</div>'
+
+
 def _render_chips(days):
     months, weeks = [], []
     seen_m, seen_w = set(), set()
@@ -609,12 +648,38 @@ a:hover{text-decoration:underline;}
 .foot{margin-top:52px;padding-top:16px;border-top:1px solid var(--line);
   font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:.72rem;
   color:var(--muted);font-variant-numeric:tabular-nums;}
+
+/* index rows */
+.idx{display:flex;flex-direction:column;margin-top:26px;}
+.idx-row{display:grid;grid-template-columns:150px 1fr auto;gap:14px;
+  align-items:baseline;padding:13px 4px;border-bottom:1px solid var(--line);
+  color:var(--ink);}
+.idx-row:hover{text-decoration:none;background:var(--surface);}
+.idx-date{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
+  font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;
+  white-space:nowrap;}
+.idx-head{font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  font-size:1.05rem;line-height:1.35;}
+.idx-row:hover .idx-head{color:var(--accent);}
+.idx-stats{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
+  font-size:.68rem;color:var(--muted);font-variant-numeric:tabular-nums;
+  white-space:nowrap;}
+@media (max-width:560px){
+  .idx-row{grid-template-columns:1fr;gap:3px;}
+  .idx-stats{display:none;}
+}
+
+/* day-page nav */
+.daynav{display:flex;justify-content:space-between;gap:12px;margin-top:34px;
+  font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:.76rem;}
+.backlink{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
+  font-size:.74rem;}
 """
 
 _SCRIPT = """
 (function(){
   var chips=document.querySelectorAll('.chip');
-  var days=document.querySelectorAll('.day');
+  var days=document.querySelectorAll('.idx-row');
   function apply(type,value){
     days.forEach(function(d){
       var show = type==='all' || d.dataset[type]===value;
@@ -632,53 +697,68 @@ _SCRIPT = """
 """
 
 
-def _render_body(days, pitches_by_date, generated, public=False, excluded=None):
-    chips = _render_chips(days)
-    day_html = "".join(
-        _render_day(d, pitches_by_date, public=public, excluded=excluded)
-        for d in days)
-    if not days:
-        day_html = ('<section class="day"><p class="passthrough">'
-                    'No digests found yet.</p></section>')
+def _footer(generated, public):
     if public:
         # Attribution is welcome (author byline + profile link); what's barred is
         # tailoring the SYSTEM around the editor - standing rule in signaldesk CLAUDE.md.
-        footer = (f'<footer class="foot"><a href="{PUBLIC_SITE_URL}">AI SIGNAL</a> '
-                  '&mdash; a daily curated brief on AI infrastructure '
-                  '&middot; curated by Hari Yelesetty</footer>')
-    else:
-        footer = (f'<footer class="foot">Generated {_esc(generated)} '
-                  '&middot; signaldesk &middot; private</footer>')
-    wordmark = ('<div class="wordmark">AI SIGNAL '
-                '<span class="cursor">▮</span></div>')
-    return (
-        '<div class="ai-signal">'
-        f'<div class="topbar"><div class="topbar-inner">{wordmark}{chips}</div></div>'
-        f'<main class="wrap">{day_html}{footer}</main>'
-        '</div>')
+        return (f'<footer class="foot"><a href="{PUBLIC_SITE_URL}">AI SIGNAL</a> '
+                '&mdash; a daily curated brief on AI infrastructure '
+                '&middot; curated by Hari Yelesetty</footer>')
+    return (f'<footer class="foot">Generated {_esc(generated)} '
+            '&middot; signaldesk &middot; private</footer>')
 
 
-def render_page(days, pitches_by_date, generated, public=False, excluded=None):
-    """Render a full standalone document. `public=True` produces the sanitized
-    GitHub Pages edition (no pitches / careers / target-employers / mesh, and a
-    public footer). One body/style/script; only content + shell metadata differ."""
-    body = _render_body(days, pitches_by_date, generated,
-                        public=public, excluded=excluded)
+def _shell(body, public, title, script=""):
     style = f"<style>{_STYLE}</style>"
-    script = f"<script>{_SCRIPT}</script>"
     head = ['<meta charset="utf-8">',
             '<meta name="viewport" content="width=device-width, initial-scale=1">']
     if public:
         head.append('<meta name="description" content="A daily curated brief on '
                     'AI infrastructure — model releases, inference engines, '
                     'open weights, hardware.">')
-    head.append('<title>AI Signal</title>')
+    head.append(f'<title>{_esc(title)}</title>')
     head_html = "\n".join(head)
     return (
         "<!doctype html>\n"
         '<html lang="en">\n<head>\n'
         f"{head_html}\n"
         f"{style}\n</head>\n<body>\n{body}\n{script}\n</body>\n</html>\n")
+
+
+def render_index_page(days, generated, public=False):
+    """The INDEX: wordmark + month/week chips + one row per day linking to its
+    days/YYYY-MM-DD.html page. Scales linearly in rows, not content."""
+    wordmark = ('<div class="wordmark">AI SIGNAL '
+                '<span class="cursor">▮</span></div>')
+    body = (
+        '<div class="ai-signal">'
+        f'<div class="topbar"><div class="topbar-inner">{wordmark}'
+        f'{_render_chips(days)}</div></div>'
+        f'<main class="wrap">{_render_index_rows(days)}'
+        f'{_footer(generated, public)}</main></div>')
+    return _shell(body, public, "AI Signal", f"<script>{_SCRIPT}</script>")
+
+
+def render_day_page(day, prev_day, next_day, pitches_by_date, generated,
+                    public=False, excluded=None):
+    """One digest day as its own page, with back-to-index + prev/next nav."""
+    wordmark = ('<div class="wordmark"><a href="../index.html" '
+                'style="color:inherit">AI SIGNAL</a> '
+                '<span class="cursor">▮</span></div>')
+    nav = '<nav class="daynav">'
+    nav += (f'<a href="{_attr(prev_day["date"])}.html">&larr; {_esc(prev_day["date"])}</a>'
+            if prev_day else '<span></span>')
+    nav += '<a class="backlink" href="../index.html">all days</a>'
+    nav += (f'<a href="{_attr(next_day["date"])}.html">{_esc(next_day["date"])} &rarr;</a>'
+            if next_day else '<span></span>')
+    nav += '</nav>'
+    body = (
+        '<div class="ai-signal">'
+        f'<div class="topbar"><div class="topbar-inner">{wordmark}</div></div>'
+        '<main class="wrap">'
+        f'{_render_day(day, pitches_by_date, public=public, excluded=excluded)}'
+        f'{nav}{_footer(generated, public)}</main></div>')
+    return _shell(body, public, f'AI Signal — {day["date"]}')
 
 
 # --------------------------------------------------------------------------- #
@@ -710,10 +790,33 @@ def _collect_proposed_pitches(cfg):
     return by_date
 
 
+def _write_edition(root, days, pitches_by_date, generated, public, excluded):
+    """Write index.html + days/*.html under `root`. Stale day pages (deleted
+    digests) are removed — the days/ dir is fully generator-owned."""
+    days_dir = os.path.join(root, "days")
+    os.makedirs(days_dir, exist_ok=True)
+    for old in glob.glob(os.path.join(days_dir, "*.html")):
+        os.remove(old)
+    dated = [d for d in days if d["date_obj"]]  # newest first (pre-sorted)
+    for i, d in enumerate(dated):
+        prev_day = dated[i + 1] if i + 1 < len(dated) else None   # older
+        next_day = dated[i - 1] if i > 0 else None                # newer
+        page = render_day_page(d, prev_day, next_day, pitches_by_date,
+                               generated, public=public, excluded=excluded)
+        with open(os.path.join(days_dir, f'{d["date"]}.html'),
+                  "w", encoding="utf-8") as f:
+            f.write(page)
+    index_path = os.path.join(root, "index.html")
+    with open(index_path, "w", encoding="utf-8") as f:
+        f.write(render_index_page(days, generated, public=public))
+    return index_path, len(dated)
+
+
 def build_site(cfg):
-    """Parse all digests + proposed pitches and write BOTH editions:
-      - site/index.html         full PRIVATE edition (everything).
-      - site/public/index.html  sanitized PUBLIC edition (GitHub Pages).
+    """Parse all digests + proposed pitches and write BOTH multi-page editions:
+      - site/index.html + site/days/*.html            full PRIVATE edition.
+      - site/public/index.html + site/public/days/*   sanitized PUBLIC edition
+        (GitHub Pages — publish by copying the whole site/public/ tree).
     Returns (index_path, public_path, excluded) where `excluded` lists what the
     public sanitizer dropped this build (for eyeballing)."""
     days = _collect_days(cfg)
@@ -722,15 +825,10 @@ def build_site(cfg):
 
     site_dir = os.path.join(cfg.signaldesk_dir, "site")
     public_dir = os.path.join(site_dir, "public")
-    os.makedirs(public_dir, exist_ok=True)
-    index_path = os.path.join(site_dir, "index.html")
-    public_path = os.path.join(public_dir, "index.html")
 
-    with open(index_path, "w", encoding="utf-8") as f:
-        f.write(render_page(days, pitches_by_date, generated, public=False))
-
+    index_path, _n = _write_edition(site_dir, days, pitches_by_date,
+                                    generated, public=False, excluded=None)
     excluded = []
-    with open(public_path, "w", encoding="utf-8") as f:
-        f.write(render_page(days, pitches_by_date, generated,
-                            public=True, excluded=excluded))
+    public_path, _n = _write_edition(public_dir, days, pitches_by_date,
+                                     generated, public=True, excluded=excluded)
     return index_path, public_path, excluded
