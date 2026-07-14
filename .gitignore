@@ -30,6 +30,9 @@ build/
 data/*.json
 !config/twitter_accounts.json
 
+# Engine local config (machine-local; example is committed)
+engine.config.json
+
 # Reports (generated output — not source)
 reports/*.pdf
 reports/*.md

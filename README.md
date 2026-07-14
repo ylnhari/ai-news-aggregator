@@ -134,6 +134,80 @@ scripts/
 tests/                  # pytest suite (parsing, escaping, config)
 ```
 
+## Engine (`engine/`) — the deterministic collection core
+
+`engine/` is a newer, self-contained pipeline that runs alongside the legacy
+`src/` brief. It is **stdlib-only** (`sqlite3`, `urllib`, `xml.etree`, `json`,
+`html.parser`) — **no third-party dependencies and no LLM calls anywhere**. It
+collects signal, stores it with cross-run watermarks, tags beats, heuristically
+pre-ranks, and writes a Markdown digest. All editorial judgment (clustering into
+events, significance scoring, pitching) is deliberately left to a *later* LLM
+pass that lives outside this engine — the pre-rank is honest about being a first
+pass.
+
+### Open-source posture
+
+The engine ships **generic machinery only**. The source list, beat weights, and
+output location are read from config that points at **a private config repo** you
+supply — none of that lives here. This repo ships `engine.config.example.json`
+and `registry/` documentation only; your real registry and digests live in your
+own private repo.
+
+### Design
+
+```
+sources.json (private) ─► transports ─► SQLite store ─► beats ─► rank ─► digest.md
+     registry              rss/hn/hf/       items +       keyword   heuristic   + INDEX.md
+                           arxiv/greenhouse/ watermarks     tags     pre-rank
+                           html-diff
+```
+
+- **Watermarks, not "last 24h".** Each source is fetched *since its last
+  successful run* (first run falls back to a configurable window). A missed day
+  self-heals — the next run covers the whole gap. Failures never advance a
+  source's watermark and never crash a run; they're recorded per-source and
+  surfaced in the digest's "Mesh health" footer.
+- **Transports** (`engine/transports/`), one per kind, all returning normalized
+  item dicts: `rss` (RSS2 + Atom, incl. GitHub `releases.atom` with per-repo
+  expansion), `hn` (HN Algolia search-by-date, points threshold), `hf` (HF new
+  models, keyword-collapsed firehose), `arxiv` (Atom query in window),
+  `greenhouse` (jobs JSON → item per *new* posting vs snapshot), `htmldiff`
+  (strip tags, extract link/title pairs, diff vs last snapshot → new links).
+  All requests use a real browser User-Agent and a 30s timeout. Transports that
+  need a real browser (Cloudflare/WAF-gated, JS-only) are marked unsupported in
+  the registry and handled elsewhere.
+
+```
+engine/
+  __main__.py     # CLI: collect | digest | run
+  config.py       # engine.config.json loader (paths, weights, keyword maps)
+  registry.py     # reads the private registry's machine-JSON (never the YAML)
+  store.py        # SQLite: items, source_runs (watermarks), snapshots; 90-day prune
+  collect.py      # orchestrator: run each transport, tag, store, record outcomes
+  beats.py        # keyword→beat tagger (additive to source-default beats)
+  rank.py         # heuristic pre-rank + naive near-duplicate grouping
+  digest.py       # Markdown digest (top stories + by-beat + mesh health) + INDEX
+  transports/     # rss, hn, hf, arxiv, greenhouse, htmldiff, http (shared fetch)
+engine.config.example.json   # copy to engine.config.json (gitignored) and edit
+scripts/register_task.ps1    # register the daily Windows Scheduled Task
+```
+
+### Config & running
+
+```bash
+cp engine.config.example.json engine.config.json   # then edit paths + weights
+python -m engine collect     # fetch every enabled source since its watermark
+python -m engine digest      # build a digest from recently-fetched items (--hours N)
+python -m engine run         # collect + digest (the scheduled daily job)
+```
+
+`engine.config.json` keys: `signaldesk_dir` (your private config repo),
+`db_path`, `window_hours_first_run`, `beat_weights`, `hf_keywords`,
+`beat_keywords`. The registry the engine reads is `<config repo>/registry/
+sources.json` — a strict-JSON twin of a human-authored policy doc. Schedule the
+daily run with `scripts/register_task.ps1` (writes a "signaldesk-daily-collect"
+task at 08:30, catch-up on miss).
+
 ## Security notes
 
 - Scraped content is treated as untrusted: it's XML-escaped before PDF rendering, and
