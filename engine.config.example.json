@@ -44,7 +44,14 @@
     "awq",
     "gptq",
     "quantiz",
-    "vllm"
+    "vllm",
+    "sarvam",
+    "indic",
+    "falcon",
+    "jais",
+    "olmo",
+    "minicpm",
+    "aya"
   ],
   "beat_keywords": {
     "inference-serving": [
