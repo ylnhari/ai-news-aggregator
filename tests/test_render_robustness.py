@@ -26,6 +26,16 @@ _Open events, last 10 days._
 
 _Quiet day — nothing cleared the bar. 18 of 23 sources returned zero._
 
+### Gemma 4 quantization lands
+
+Intel published an official 2-bit quantization of Gemma 4.
+
+<details><summary>Go deeper</summary>
+
+- `hn-algolia` · [Gemma 4 AutoRound thread](https://news.ycombinator.com/item?id=44) — 2026-07-15 06:20
+
+</details>
+
 ## By beat
 
 ### inference-serving
@@ -111,8 +121,34 @@ class RenderRobustness(unittest.TestCase):
         self.assertIn("user-facing changes", self.public)
 
     def test_trailing_bare_sid_becomes_chip(self):
-        self.assertIn('class="sid"', self.public)
-        self.assertNotIn("[hn-algolia]", self.public)
+        # private edition: the raw "[sid]" tail renders as a chip
+        self.assertIn('class="sid"', self.private)
+        self.assertNotIn("[hn-algolia]", self.private)
+
+    def test_collector_ids_never_public(self):
+        # readers see link domains, not internal collector ids
+        self.assertNotIn("hn-algolia", self.public)
+        self.assertIn("hn-algolia", self.private)
+        self.assertIn(">news.ycombinator.com<", self.public)
+
+    def test_telemetry_never_public(self):
+        # "47 items · 5 sources · run 09:09 IST" is desk accounting
+        for needle in ("47 items", "5 sources", "run 09:09", "story groups"):
+            self.assertNotIn(needle, self.public)
+            self.assertNotIn(needle, self.index)
+        self.assertIn("47 items", self.private)
+
+    def test_meta_description_matches_config(self):
+        class Cfg:
+            public_footer_name = ""
+            public_footer_url = ""
+            public_footer_tagline = "a brief on everything"
+            public_footer_links = []
+            workspace_repo_url = ""
+
+        pub = site.render_index_page([self.day], "now", public=True, cfg=Cfg())
+        self.assertIn('content="AI Signal — a brief on everything"', pub)
+        self.assertNotIn("AI infrastructure", pub)
 
     def test_beat_rows_not_flex(self):
         # flexbox on rich inline content shreds sentences into side-by-side

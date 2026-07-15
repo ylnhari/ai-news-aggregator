@@ -23,6 +23,7 @@ import glob
 import html
 import os
 import re
+import urllib.parse
 from datetime import datetime
 
 from .config import IST
@@ -35,6 +36,19 @@ from .digest import META_RE, TOP_N  # noqa: F401  (TOP_N documents the top/rest 
 # public_footer_name / public_footer_url / workspace_repo_url.
 
 # --- public-edition sanitizer -------------------------------------------------
+# THE AUDIENCE CONTRACT — the public edition is a publication for strangers;
+# the private edition is the desk's workbench. A stranger must never see:
+#   * desk telemetry   — item/source/group counts, run timestamps, judged-pass
+#                        stamps (kept in the private edition)
+#   * internal ids     — collector sids (`hn-algolia`) become link domains
+#                        (`news.ycombinator.com`); event ids / story threads
+#                        are stripped outright
+#   * editorial ops    — curation notes, drop accounting, mesh health, pitch
+#                        cards, target-employer/careers items
+#   * raw machinery    — markdown syntax, kebab-case beat slugs, "none" labels
+# Anything reaching the public files must answer a reader's question, not
+# describe the pipeline. Enforced by tests/test_render_robustness.py — extend
+# the tests whenever a new element is added to either edition.
 # The public GitHub Pages edition drops the private radar: pitches, the
 # target-employers beat, any careers-* source item, and mesh health. Filtering
 # lives in the generator (a flag), never a hand-maintained copy of the template.
@@ -293,7 +307,17 @@ def _md_bold_code(s):
     return out
 
 
-def _render_story(story):
+def _domain(url):
+    """Reader-facing source attribution: the link's host, not our internal
+    collector id (a stranger knows github.com, not `hn-algolia`)."""
+    try:
+        host = urllib.parse.urlparse(url).netloc
+    except ValueError:
+        return ""
+    return host[4:] if host.startswith("www.") else host
+
+
+def _render_story(story, public=False):
     head = _esc(story["headline"])
     gist_html = ""
     # gist lines split into paragraphs on blank separators
@@ -311,9 +335,10 @@ def _render_story(story):
 
     src_rows = ""
     for s in story["sources"]:
+        tag = _domain(s["url"]) if public else s["sid"]
         src_rows += (
             '<li class="src">'
-            f'<span class="sid">{_esc(s["sid"])}</span>'
+            f'<span class="sid">{_esc(tag)}</span>'
             f'<a class="src-title" href="{_attr(s["url"])}">{_esc(s["title"])}</a>'
             f'<span class="ts">{_esc(s["ts"])}</span>'
             '</li>')
@@ -386,9 +411,17 @@ def _render_beats(beats, public=False, excluded=None):
                 # never nest raw md inside another anchor.
                 title = _md_inline(it["title"])
             if it["sid"]:
-                chip = (f'<a class="sid" href="{_attr(it["url"])}">'
-                        f'{_esc(it["sid"])}</a>' if it["url"] and title_has_md
-                        else f'<span class="sid">{_esc(it["sid"])}</span>')
+                # Public readers get the link's domain, not our collector id;
+                # no url to derive one from → the title link is attribution
+                # enough, drop the chip.
+                tag = _domain(it["url"]) if public else it["sid"]
+                if not tag:
+                    chip = ""
+                elif it["url"] and title_has_md:
+                    chip = (f'<a class="sid" href="{_attr(it["url"])}">'
+                            f'{_esc(tag)}</a>')
+                else:
+                    chip = f'<span class="sid">{_esc(tag)}</span>'
             else:
                 chip = ""
             items += f'<li class="beat-item">{title}{chip}</li>'
@@ -477,7 +510,7 @@ def _render_day(day, pitches_by_date, public=False, excluded=None,
     if stories:
         top_html = '<div class="eyebrow">Top stories</div>'
         for s in stories:
-            top_html += _render_story(s)
+            top_html += _render_story(s, public=public)
 
     beats_html = _render_beats(day["beats"], public=public, excluded=excluded)
 
@@ -519,17 +552,20 @@ def _render_day(day, pitches_by_date, public=False, excluded=None,
                       if blk["title"] else "")
         pass_html += f'<div class="passthrough">{title_html}{inner}</div>'
 
-    stats_text = day["stats"]
-    if public and stats_text:
-        # Ops accounting ("(17 dropped as noise/routine)") stays internal.
-        stats_text = re.sub(r"\s*\([^)]*\)", "", stats_text)
-    stats = _esc(stats_text) or "&mdash;"
+    # Collector telemetry ("47 items · 5 sources · run 09:09 IST") is desk
+    # accounting — the private edition shows it, readers never see it.
+    if public:
+        stats_html = ""
+        if excluded is not None and day["stats"]:
+            excluded.append("stats line (collector telemetry)")
+    else:
+        stats_html = f'<div class="day-stats">{_esc(day["stats"]) or "&mdash;"}</div>'
     return (
         f'<section class="day" data-month="{_attr(month_key)}" '
         f'data-week="{_attr(week_key)}">{note_html}'
         '<header class="day-head">'
         f'<h2 class="day-date">{_esc(pretty)}</h2>'
-        f'<div class="day-stats">{stats}</div>'
+        f'{stats_html}'
         '</header>'
         f'{lede_html}{urgent}{top_html}{beats_html}{pass_html}{mesh_html}'
         '</section>')
@@ -557,7 +593,7 @@ def _short_stats(day):
     return day["stats"][:60] if day["stats"] else ""
 
 
-def _render_index_rows(days):
+def _render_index_rows(days, public=False):
     """One anchor row per day, newest first, carrying month/week data attrs
     for the chip filter. Links are relative: days/YYYY-MM-DD.html."""
     rows = ""
@@ -569,12 +605,15 @@ def _render_index_rows(days):
             else date_obj.strftime("%a, %b %#d, %Y")
         mk = date_obj.strftime("%Y-%m")
         wk = _week_monday(date_obj).strftime("%Y-%m-%d")
+        # Item/group counts are desk telemetry — private edition only.
+        stats = ("" if public else
+                 f'<span class="idx-stats">{_esc(_short_stats(d))}</span>')
         rows += (
             f'<a class="idx-row" href="days/{_attr(d["date"])}.html" '
             f'data-month="{_attr(mk)}" data-week="{_attr(wk)}">'
             f'<span class="idx-date">{_esc(pretty)}</span>'
             f'<span class="idx-head">{_esc(_day_headline(d))}</span>'
-            f'<span class="idx-stats">{_esc(_short_stats(d))}</span>'
+            f'{stats}'
             '</a>')
     if not rows:
         rows = '<p class="passthrough">No digests yet.</p>'
@@ -844,14 +883,15 @@ def _footer(generated, public, cfg=None):
             '&middot; private edition</footer>')
 
 
-def _shell(body, public, title, script=""):
+def _shell(body, public, title, script="", cfg=None):
     style = f"<style>{_STYLE}</style>"
     head = ['<meta charset="utf-8">',
             '<meta name="viewport" content="width=device-width, initial-scale=1">']
     if public:
-        head.append('<meta name="description" content="A daily curated brief on '
-                    'AI infrastructure — model releases, inference engines, '
-                    'open weights, hardware.">')
+        tagline = (getattr(cfg, "public_footer_tagline", "") if cfg else "") \
+            or "a daily curated AI news brief"
+        desc = "AI Signal — " + tagline
+        head.append(f'<meta name="description" content="{_attr(desc)}">')
     head.append(f'<title>{_esc(title)}</title>')
     head_html = "\n".join(head)
     return (
@@ -870,9 +910,10 @@ def render_index_page(days, generated, public=False, cfg=None):
         '<div class="ai-signal">'
         f'<div class="topbar"><div class="topbar-inner">{wordmark}'
         f'{_render_chips(days)}</div></div>'
-        f'<main class="wrap">{_render_index_rows(days)}'
+        f'<main class="wrap">{_render_index_rows(days, public=public)}'
         f'{_footer(generated, public, cfg)}</main></div>')
-    return _shell(body, public, "AI Signal", f"<script>{_SCRIPT}</script>")
+    return _shell(body, public, "AI Signal", f"<script>{_SCRIPT}</script>",
+                  cfg=cfg)
 
 
 def render_day_page(day, prev_day, next_day, pitches_by_date, generated,
@@ -896,7 +937,7 @@ def render_day_page(day, prev_day, next_day, pitches_by_date, generated,
         '<main class="wrap">'
         f'{_render_day(day, pitches_by_date, public=public, excluded=excluded, pitch_link_base=link_base)}'
         f'{nav}{_footer(generated, public, cfg)}</main></div>')
-    return _shell(body, public, f'AI Signal — {day["date"]}')
+    return _shell(body, public, f'AI Signal — {day["date"]}', cfg=cfg)
 
 
 # --------------------------------------------------------------------------- #
