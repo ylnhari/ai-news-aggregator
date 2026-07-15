@@ -121,6 +121,28 @@ class RenderRobustness(unittest.TestCase):
         rule = _re.search(r"\.beat-item\{[^}]*\}", self.public).group(0)
         self.assertNotIn("flex", rule)
 
+    def test_footer_contact_links_config_driven(self):
+        # readers must be able to reach the curator; links come ONLY from
+        # config (the engine ships no personal data)
+        class Cfg:
+            public_footer_name = "Jane Doe"
+            public_footer_url = "https://jane.example"
+            public_footer_tagline = "a test brief"
+            public_footer_links = [
+                {"label": "GitHub", "url": "https://github.com/jane"},
+                {"label": "LinkedIn", "url": "https://linkedin.com/in/jane"},
+            ]
+
+        pub = site.render_day_page(self.day, None, None, {}, "now",
+                                   public=True, excluded=[], cfg=Cfg())
+        self.assertIn('href="https://github.com/jane"', pub)
+        self.assertIn('href="https://linkedin.com/in/jane"', pub)
+        self.assertIn('curated by <a href="https://jane.example">Jane Doe</a>',
+                      pub)
+        # no cfg → generic footer, zero personal residue
+        self.assertNotIn('class="foot-links"', self.public)
+        self.assertNotIn("curated by", self.public)
+
     def test_week_chips_bounded(self):
         base = datetime(2026, 1, 5)
         days = []

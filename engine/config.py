@@ -44,6 +44,12 @@ class Config:
         self.public_footer_name = data.get("public_footer_name", "")
         self.public_footer_url = data.get("public_footer_url", "")
         self.public_footer_tagline = data.get("public_footer_tagline", "")
+        # Contact/profile links shown in the public footer so readers can
+        # reach the curator: list of {"label": "GitHub", "url": "https://…"}.
+        self.public_footer_links = [
+            l for l in data.get("public_footer_links", [])
+            if isinstance(l, dict) and l.get("label") and l.get("url")
+        ]
         # Optional: your workspace's git-host URL — private-edition pitch cards
         # link into it; empty = no link, cards still render.
         self.workspace_repo_url = data.get("workspace_repo_url", "")

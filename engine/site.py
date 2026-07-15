@@ -766,6 +766,9 @@ a:hover{text-decoration:underline;}
 .foot{margin-top:52px;padding-top:16px;border-top:1px solid var(--line);
   font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:.72rem;
   color:var(--muted);font-variant-numeric:tabular-nums;}
+.foot-links{margin-top:6px;}
+.foot-links a{color:var(--muted);}
+.foot-links a:hover{color:var(--accent);}
 
 /* index rows */
 .idx{display:flex;flex-direction:column;margin-top:26px;}
@@ -821,10 +824,22 @@ def _footer(generated, public, cfg=None):
         url = getattr(cfg, "public_footer_url", "") if cfg else ""
         tagline = (getattr(cfg, "public_footer_tagline", "") if cfg else "") \
             or "a daily curated brief"
-        byline = f" &middot; curated by {_esc(name)}" if name else ""
-        mark = (f'<a href="{_attr(url)}">AI SIGNAL</a>' if url else "AI SIGNAL")
-        return (f'<footer class="foot">{mark} '
-                f'&mdash; {_esc(tagline)}{byline}</footer>')
+        links = getattr(cfg, "public_footer_links", []) if cfg else []
+        if name and url:
+            byline = (f' &middot; curated by '
+                      f'<a href="{_attr(url)}">{_esc(name)}</a>')
+        elif name:
+            byline = f" &middot; curated by {_esc(name)}"
+        else:
+            byline = ""
+        contact = ""
+        if links:
+            row = " &middot; ".join(
+                f'<a href="{_attr(l["url"])}">{_esc(l["label"])}</a>'
+                for l in links)
+            contact = f'<div class="foot-links">{row}</div>'
+        return (f'<footer class="foot">AI SIGNAL '
+                f'&mdash; {_esc(tagline)}{byline}{contact}</footer>')
     return (f'<footer class="foot">Generated {_esc(generated)} '
             '&middot; private edition</footer>')
 
