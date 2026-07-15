@@ -489,8 +489,15 @@ def _render_day(day, pitches_by_date, public=False, excluded=None,
     else:
         mesh_html = _render_mesh(day["mesh"])
 
+    # The untitled passthrough block is the day's lede (e.g. the quiet-day
+    # summary) — it opens the page, everything else closes it.
+    lede_html = ""
+    for blk in [b for b in day["passthrough"] if not b["title"]]:
+        for x in blk["body"]:
+            lede_html += f'<p class="lede">{_md_inline(x.strip().strip("_"))}</p>'
+
     pass_html = ""
-    for blk in day["passthrough"]:
+    for blk in [b for b in day["passthrough"] if b["title"]]:
         # Internal ops sections (event ids, registry-patch notes) never reach
         # the public edition.
         if public and blk["title"].strip().lower() in ("story threads",):
@@ -524,7 +531,7 @@ def _render_day(day, pitches_by_date, public=False, excluded=None,
         f'<h2 class="day-date">{_esc(pretty)}</h2>'
         f'<div class="day-stats">{stats}</div>'
         '</header>'
-        f'{urgent}{top_html}{beats_html}{pass_html}{mesh_html}'
+        f'{lede_html}{urgent}{top_html}{beats_html}{pass_html}{mesh_html}'
         '</section>')
 
 
@@ -751,6 +758,8 @@ a:hover{text-decoration:underline;}
   font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:.9em;}
 .mesh-body ul{margin:6px 0;padding-left:18px;}
 .passthrough{color:var(--muted);font-size:.9rem;margin:12px 0;}
+.lede{font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  font-size:1.08rem;color:var(--ink);max-width:68ch;margin:4px 0 6px;}
 .pt-title{font-weight:600;}
 
 /* footer */
