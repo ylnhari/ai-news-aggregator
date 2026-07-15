@@ -30,9 +30,12 @@ _Quiet day — nothing cleared the bar. 18 of 23 sources returned zero._
 
 ### inference-serving
 
-- **llama.cpp, 8 releases today (`b10003`–`b10015`)** — [server gains flags](https://github.com/g/l/releases/tag/b10010) and [a refactor](https://github.com/g/l/releases/tag/b10011).
+- **llama.cpp, 8 releases today (`b10003`–`b10015`)** — [server gains
+flags](https://github.com/g/l/releases/tag/b10010) and [a
+refactor](https://github.com/g/l/releases/tag/b10011) are the only
+user-facing changes.
 - 3 posts were tagged by keyword coincidence — none relevant; dropped.
-- [BIS bulletin PDF](https://www.bis.org/publ/bisbull120.pdf) — [hn-algolia](https://news.ycombinator.com/item?id=1)
+- [BIS bulletin PDF](https://www.bis.org/publ/bisbull120.pdf) — [hn-algolia]
 
 ## Weird future section
 
@@ -90,6 +93,25 @@ class RenderRobustness(unittest.TestCase):
 
     def test_unknown_sections_render_not_crash(self):
         self.assertIn("Weird future section", self.private)
+
+    def test_hardwrapped_bullets_reflow(self):
+        # judges wrap long bullets across lines, splitting [text](url) —
+        # the parser must rejoin them so links render whole
+        self.assertNotIn("](", self.public)
+        self.assertIn('href="https://github.com/g/l/releases/tag/b10010"',
+                      self.public)
+        self.assertIn("user-facing changes", self.public)
+
+    def test_trailing_bare_sid_becomes_chip(self):
+        self.assertIn('class="sid"', self.public)
+        self.assertNotIn("[hn-algolia]", self.public)
+
+    def test_beat_rows_not_flex(self):
+        # flexbox on rich inline content shreds sentences into side-by-side
+        # columns (live incident 2026-07-15) — beat rows must flow as text
+        import re as _re
+        rule = _re.search(r"\.beat-item\{[^}]*\}", self.public).group(0)
+        self.assertNotIn("flex", rule)
 
     def test_week_chips_bounded(self):
         base = datetime(2026, 1, 5)

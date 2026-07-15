@@ -103,7 +103,19 @@ def parse_digest(path):
     stats_seen = False
     footer_seen = False
 
-    lines = text.split("\n")
+    # Reflow: judges hard-wrap long bullets across physical lines, splitting
+    # [link](url) syntax so it can never render. A non-blank line that starts
+    # with none of the structural prefixes and directly follows a "- " bullet
+    # is that bullet's continuation — join it back.
+    lines = []
+    for raw in text.split("\n"):
+        s = raw.strip()
+        if lines and s and not s.startswith(("- ", "#", "<", "*", "_", "|")) \
+                and lines[-1].lstrip().startswith("- "):
+            lines[-1] = lines[-1].rstrip() + " " + s
+        else:
+            lines.append(raw)
+
     for raw in lines:
         line = raw.rstrip()
         stripped = line.strip()
@@ -267,7 +279,8 @@ def _md_inline(s):
     i = 0
     for mo in _LINK_RE.finditer(s):
         parts.append(_md_bold_code(s[i:mo.start()]))
-        parts.append(f'<a href="{_attr(mo.group(2))}">{_esc(mo.group(1))}</a>')
+        parts.append(f'<a href="{_attr(mo.group(2))}">'
+                     f'{_md_bold_code(mo.group(1))}</a>')
         i = mo.end()
     parts.append(_md_bold_code(s[i:]))
     return "".join(parts)
@@ -348,6 +361,12 @@ def _render_beats(beats, public=False, excluded=None):
                 if excluded is not None:
                     excluded.append(f"careers item [{it['sid']}] {it['title'][:60]}")
                 continue
+            # Trailing bare "[source-id]" (no url) = a sid chip, not a link.
+            if not it["sid"]:
+                tm = re.match(r"^(.*)\s+[—-]\s+\[([\w-]{2,40})\]$",
+                              it["title"].strip())
+                if tm:
+                    it = dict(it, title=tm.group(1).strip(), sid=tm.group(2))
             title_has_md = bool(_LINK_RE.search(it["title"]))
             if it["url"] and not title_has_md:
                 title = f'<a href="{_attr(it["url"])}">{_esc(it["title"])}</a>'
@@ -606,7 +625,7 @@ _STYLE = """
 body,.ai-signal{margin:0;background:var(--bg);color:var(--ink);
   font-family:'Segoe UI',system-ui,sans-serif;line-height:1.6;
   -webkit-font-smoothing:antialiased;}
-.wrap{max-width:720px;margin:0 auto;padding:0 20px 72px;}
+.wrap{max-width:860px;margin:0 auto;padding:0 24px 64px;}
 .mono{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;}
 .serif{font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;}
 a{color:var(--accent);text-decoration:none;}
@@ -617,7 +636,7 @@ a:hover{text-decoration:underline;}
 .topbar{position:sticky;top:0;z-index:20;background:var(--bar);
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   border-bottom:1px solid var(--line);}
-.topbar-inner{max-width:720px;margin:0 auto;padding:12px 20px 10px;}
+.topbar-inner{max-width:860px;margin:0 auto;padding:12px 24px 10px;}
 .wordmark{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
   font-weight:600;letter-spacing:.12em;font-size:.86rem;text-align:center;
   text-transform:uppercase;color:var(--ink);}
@@ -704,16 +723,15 @@ a:hover{text-decoration:underline;}
   background:var(--surface);border:1px solid var(--line);border-radius:6px;
   padding:2px 8px;display:inline-block;margin-bottom:8px;}
 .beat-items{list-style:none;margin:0;padding:0;}
-.beat-item{padding:5px 0 5px 16px;border-bottom:1px solid var(--line);
-  display:flex;gap:10px;align-items:baseline;justify-content:space-between;
-  position:relative;}
-.beat-item::before{content:"\\25B8";position:absolute;left:0;top:5px;
+.beat-item{padding:6px 0 6px 16px;border-bottom:1px solid var(--line);
+  position:relative;display:block;max-width:none;}
+.beat-item::before{content:"\\25B8";position:absolute;left:0;top:6px;
   color:var(--accent);font-size:.8rem;}
+.beat-item .sid{margin-left:8px;}
 .beat-note{padding:5px 0 5px 16px;color:var(--muted);font-size:.85rem;
   border-bottom:1px solid var(--line);}
 .beat-note:last-child{border-bottom:none;}
 .beat-item:last-child{border-bottom:none;}
-.beat-item a,.beat-item{max-width:68ch;}
 
 /* mesh + passthrough */
 .mesh{margin-top:30px;}
