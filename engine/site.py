@@ -371,9 +371,15 @@ def _render_beats(beats, public=False, excluded=None):
             if it["url"] and not title_has_md:
                 title = f'<a href="{_attr(it["url"])}">{_esc(it["title"])}</a>'
             elif not it["url"] and not title_has_md:
-                # No link anywhere: this is a judge's curation NOTE (what was
-                # dropped and why), not a story — render muted, no arrow.
-                items += f'<li class="beat-note">{_md_inline(it["title"])}</li>'
+                # No link anywhere: a curation NOTE (what was dropped and
+                # why) — the editor talking to the desk, NOT news. Private
+                # edition renders it muted; the public reader never sees it.
+                if public:
+                    if excluded is not None:
+                        excluded.append(f"curation note '{it['title'][:60]}'")
+                else:
+                    items += (f'<li class="beat-note">'
+                              f'{_md_inline(it["title"])}</li>')
                 continue
             else:
                 # Judge-authored rich line: render its own markdown links;
@@ -394,8 +400,9 @@ def _render_beats(beats, public=False, excluded=None):
             f'<ul class="beat-items">{items}</ul></div>')
     if not rows:
         return ""
+    label = "Also today" if public else "By beat"
     return (
-        '<div class="eyebrow">By beat</div>'
+        f'<div class="eyebrow">{label}</div>'
         f'<div class="beats">{rows}</div>')
 
 
@@ -505,7 +512,11 @@ def _render_day(day, pitches_by_date, public=False, excluded=None,
                       if blk["title"] else "")
         pass_html += f'<div class="passthrough">{title_html}{inner}</div>'
 
-    stats = _esc(day["stats"]) or "&mdash;"
+    stats_text = day["stats"]
+    if public and stats_text:
+        # Ops accounting ("(17 dropped as noise/routine)") stays internal.
+        stats_text = re.sub(r"\s*\([^)]*\)", "", stats_text)
+    stats = _esc(stats_text) or "&mdash;"
     return (
         f'<section class="day" data-month="{_attr(month_key)}" '
         f'data-week="{_attr(week_key)}">{note_html}'

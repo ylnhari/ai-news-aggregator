@@ -12,7 +12,7 @@ from engine import site
 NASTY = """<!-- meta: items=47 groups=5 top="none" -->
 # AI Signal — 2026-07-15
 
-*47 items · 5 sources · 5 story groups · run 09:09 IST*
+*47 items · 5 sources · 5 story groups (17 dropped as noise) · run 09:09 IST*
 
 **Open pitches:** none proposed.
 
@@ -80,9 +80,17 @@ class RenderRobustness(unittest.TestCase):
         self.assertIn("Story threads", self.private)
         self.assertIn("Mesh health", self.private)
 
-    def test_curation_notes_render_muted(self):
-        self.assertIn("beat-note", self.public)
-        self.assertIn("keyword coincidence", self.public)
+    def test_curation_notes_private_only(self):
+        # editor-to-desk notes never reach readers; private edition keeps them
+        self.assertNotIn('class="beat-note"', self.public)
+        self.assertNotIn("keyword coincidence", self.public)
+        self.assertIn('class="beat-note"', self.private)
+        self.assertIn("keyword coincidence", self.private)
+
+    def test_reader_labels_and_stats(self):
+        self.assertIn("Also today", self.public)
+        self.assertIn("By beat", self.private)
+        self.assertNotIn("dropped as noise", self.public)
 
     def test_beat_labels_are_friendly(self):
         self.assertIn("Inference &amp; serving", self.public)
