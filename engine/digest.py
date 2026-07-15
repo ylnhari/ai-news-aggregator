@@ -252,6 +252,9 @@ def regenerate_index(cfg):
             mm = META_RE.search(head)
             if mm:
                 items, groups, top = int(mm.group(1)), int(mm.group(2)), mm.group(3)
+            if top.strip().lower() in ("", "none", "(no ranked story)",
+                                       "(no story)"):
+                top = "Quiet day — scanned, nothing significant"
         except OSError:
             pass
         entries.append((d, name, items, groups, top))

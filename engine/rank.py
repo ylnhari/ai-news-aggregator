@@ -39,11 +39,20 @@ def _anchors(title: str):
 
 
 def _root_domain(url: str) -> str:
-    host = urlparse(url or "").netloc.lower()
+    parsed = urlparse(url or "")
+    host = parsed.netloc.lower()
     if host.startswith("www."):
         host = host[4:]
     parts = host.split(".")
-    return ".".join(parts[-2:]) if len(parts) >= 2 else host
+    root = ".".join(parts[-2:]) if len(parts) >= 2 else host
+    # Mono-host platforms: scope to the repo/org, not the whole domain —
+    # and mark repo-scoped roots so same-repo bursts (8 point releases in a
+    # day) collapse to ONE group regardless of title overlap.
+    if root in ("github.com", "gitlab.com", "huggingface.co"):
+        segs = [s for s in parsed.path.split("/") if s][:2]
+        if segs:
+            return root + "/" + "/".join(segs)
+    return root
 
 
 def _jaccard(a: set, b: set) -> float:
@@ -100,7 +109,9 @@ def rank_and_group(items, trust_by_source: dict, cfg):
             jac = _jaccard(items[i]["_tokens"], items[j]["_tokens"])
             if jac > 0.5:
                 union(i, j)
-            elif items[i]["_root"] and items[i]["_root"] == items[j]["_root"] and jac > 0.3:
+            elif items[i]["_root"] and items[i]["_root"] == items[j]["_root"] \
+                    and ("/" in items[i]["_root"] or jac > 0.3):
+                # same domain needs title overlap; same REPO groups outright
                 union(i, j)
             elif (items[i]["_anchors"] & items[j]["_anchors"]) and jac > 0.15:
                 union(i, j)  # same named release, cross-source echo

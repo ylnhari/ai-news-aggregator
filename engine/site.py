@@ -152,6 +152,8 @@ def parse_digest(path):
         if line.startswith("### "):
             head = line[4:].strip()
             if section == "top":
+                if head.strip().lower() in ("none", "(no ranked story)"):
+                    head = _QUIET
                 cur_story = {"headline": head, "gist": [], "sources": []}
                 day["top"].append(cur_story)
             elif section == "beat":
@@ -159,6 +161,13 @@ def parse_digest(path):
                 day["beats"].append(cur_beat)
             elif section == "passthrough" and day["passthrough"]:
                 day["passthrough"][-1]["body"].append(head)
+            continue
+
+        # An italic explanation directly under "## Top stories" with no story
+        # yet = the quiet-day note; keep it (renders as the day's lede).
+        if section == "top" and cur_story is None and stripped.startswith("_") \
+                and stripped.endswith("_") and len(stripped) > 2:
+            day["passthrough"].insert(0, {"title": "", "body": [stripped.strip("_")]})
             continue
 
         if section == "top" and cur_story is not None:
@@ -285,7 +294,7 @@ def _render_story(story):
     if para:
         paras.append(" ".join(para))
     for p in paras:
-        gist_html += f"<p>{_md_bold_code(p)}</p>"
+        gist_html += f"<p>{_md_inline(p)}</p>"
 
     src_rows = ""
     for s in story["sources"]:
@@ -339,11 +348,24 @@ def _render_beats(beats, public=False, excluded=None):
                 if excluded is not None:
                     excluded.append(f"careers item [{it['sid']}] {it['title'][:60]}")
                 continue
-            if it["url"]:
+            title_has_md = bool(_LINK_RE.search(it["title"]))
+            if it["url"] and not title_has_md:
                 title = f'<a href="{_attr(it["url"])}">{_esc(it["title"])}</a>'
+            elif not it["url"] and not title_has_md:
+                # No link anywhere: this is a judge's curation NOTE (what was
+                # dropped and why), not a story — render muted, no arrow.
+                items += f'<li class="beat-note">{_md_inline(it["title"])}</li>'
+                continue
             else:
-                title = _esc(it["title"])
-            chip = f'<span class="sid">{_esc(it["sid"])}</span>' if it["sid"] else ""
+                # Judge-authored rich line: render its own markdown links;
+                # never nest raw md inside another anchor.
+                title = _md_inline(it["title"])
+            if it["sid"]:
+                chip = (f'<a class="sid" href="{_attr(it["url"])}">'
+                        f'{_esc(it["sid"])}</a>' if it["url"] and title_has_md
+                        else f'<span class="sid">{_esc(it["sid"])}</span>')
+            else:
+                chip = ""
             items += f'<li class="beat-item">{title}{chip}</li>'
         if not items:
             continue
@@ -443,9 +465,26 @@ def _render_day(day, pitches_by_date, public=False, excluded=None,
 
     pass_html = ""
     for blk in day["passthrough"]:
-        inner = "".join(f"<p>{_md_inline(x)}</p>" for x in blk["body"])
-        pass_html += (f'<div class="passthrough"><p class="pt-title">'
-                      f'{_esc(blk["title"])}</p>{inner}</div>')
+        # Internal ops sections (event ids, registry-patch notes) never reach
+        # the public edition.
+        if public and blk["title"].strip().lower() in ("story threads",):
+            if excluded is not None:
+                excluded.append(f"internal section '{blk['title']}'")
+            continue
+        inner = ""
+        for x in blk["body"]:
+            x = x.strip()
+            if x.startswith("_") and x.endswith("_") and len(x) > 2:
+                inner += f"<p><em>{_md_inline(x.strip('_'))}</em></p>"
+            elif x.startswith("- "):
+                inner += f'<li>{_md_inline(x[2:])}</li>'
+            else:
+                inner += f"<p>{_md_inline(x)}</p>"
+        inner = re.sub(r"(?:<li>.*?</li>)+",
+                       lambda m: f"<ul>{m.group(0)}</ul>", inner)
+        title_html = (f'<p class="pt-title">{_esc(blk["title"])}</p>'
+                      if blk["title"] else "")
+        pass_html += f'<div class="passthrough">{title_html}{inner}</div>'
 
     stats = _esc(day["stats"]) or "&mdash;"
     return (
@@ -459,13 +498,20 @@ def _render_day(day, pitches_by_date, public=False, excluded=None,
         '</section>')
 
 
+_QUIET = "Quiet day — scanned, nothing significant"
+
+
 def _day_headline(day):
     """Best one-line headline for the index row."""
+    head = ""
     if day["meta"] and day["meta"].get("top"):
-        return day["meta"]["top"]
-    if day["top"]:
-        return day["top"][0]["headline"]
-    return "(no stories)"
+        head = day["meta"]["top"]
+    elif day["top"]:
+        head = day["top"][0]["headline"]
+    if head.strip().lower() in ("", "none", "(no ranked story)", "(untitled)",
+                                "(no stories)"):
+        return _QUIET
+    return head
 
 
 def _short_stats(day):
@@ -514,6 +560,9 @@ def _render_chips(days):
             seen_w.add(wk)
             weeks.append((wk, wmon.strftime("%b %-d") if os.name != "nt"
                           else wmon.strftime("%b %#d")))
+    # A year of dailies would mean 52 week chips — keep the bar usable:
+    # months carry deep history, week chips only for the recent stretch.
+    weeks = weeks[:6]
     chips = ['<button class="chip" data-type="all" data-value="" '
              'aria-pressed="true">All</button>']
     for val, label in months:
@@ -660,6 +709,9 @@ a:hover{text-decoration:underline;}
   position:relative;}
 .beat-item::before{content:"\\25B8";position:absolute;left:0;top:5px;
   color:var(--accent);font-size:.8rem;}
+.beat-note{padding:5px 0 5px 16px;color:var(--muted);font-size:.85rem;
+  border-bottom:1px solid var(--line);}
+.beat-note:last-child{border-bottom:none;}
 .beat-item:last-child{border-bottom:none;}
 .beat-item a,.beat-item{max-width:68ch;}
 
