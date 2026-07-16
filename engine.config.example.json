@@ -52,7 +52,19 @@
     "jais",
     "olmo",
     "minicpm",
-    "aya"
+    "aya",
+    "inclusionai",
+    "ling-1t",
+    "ling-2.",
+    "minimax",
+    "ernie",
+    "hunyuan",
+    "stepfun",
+    "step-3",
+    "internlm",
+    "seed-oss",
+    "nemotron",
+    "granite"
   ],
   "beat_keywords": {
     "inference-serving": [
@@ -99,7 +111,16 @@
       "gemma",
       "apache 2.0",
       "open source model",
-      "open-source model"
+      "open-source model",
+      "inclusionai",
+      "ling-1t",
+      "ling-2.",
+      "minimax",
+      "ernie",
+      "hunyuan",
+      "stepfun",
+      "internlm",
+      "seed-oss"
     ],
     "frontier-releases": [
       "gpt-",
