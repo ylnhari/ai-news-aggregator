@@ -146,9 +146,24 @@ class Store:
         canonical = canonical_url(item["url"])
         item_id = sha1_id(canonical)
         exists = self.conn.execute(
-            "SELECT 1 FROM items WHERE id=?", (item_id,)
+            "SELECT source_id, extra FROM items WHERE id=?", (item_id,)
         ).fetchone()
         if exists:
+            # Same URL arriving via a second source (e.g. the vendor's own
+            # feed after an aggregator already caught it): keep the row, but
+            # record the corroborating source in extra.also_seen — otherwise
+            # the duplicate is silently lost and a healthy primary source
+            # looks dead in mesh-health (the Kimi K3 launch-day false alarm).
+            new_sid = item["source_id"]
+            extra = json.loads(exists["extra"] or "{}")
+            also = extra.get("also_seen", [])
+            seen = {exists["source_id"]} | {a.get("source_id") for a in also}
+            if new_sid not in seen:
+                also.append({"source_id": new_sid,
+                             "fetched_utc": iso(now_utc())})
+                extra["also_seen"] = also
+                self.conn.execute("UPDATE items SET extra=? WHERE id=?",
+                                  (json.dumps(extra), item_id))
             return False
         self.conn.execute(
             """INSERT INTO items(id, source_id, url, title, published_utc,

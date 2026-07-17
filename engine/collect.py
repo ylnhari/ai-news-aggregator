@@ -38,6 +38,7 @@ def collect(cfg, store: Store = None, verbose: bool = True):
         try:
             raw_items = handler(src, since, cfg) or []
             new_count = 0
+            dup_count = 0
             for it in raw_items:
                 if not it.get("url"):
                     continue
@@ -45,13 +46,17 @@ def collect(cfg, store: Store = None, verbose: bool = True):
                 it["beats"] = beats.tag(it, cfg.beat_keywords)
                 if store.upsert_item(it):
                     new_count += 1
+                else:
+                    dup_count += 1
             store.commit()
             store.record_run(src.id, "ok", "", success_time=run_at)
             per_source.append((src.id, "ok", new_count, ""))
             total_new += new_count
             if verbose:
+                dup_note = f", {dup_count} already stored" if dup_count else ""
                 print(f"  [ok]   {src.id:22s} {new_count:3d} new "
-                      f"({len(raw_items)} fetched, since {since:%Y-%m-%d %H:%M}Z)")
+                      f"({len(raw_items)} fetched{dup_note}, "
+                      f"since {since:%Y-%m-%d %H:%M}Z)")
         except SkipSource as e:  # expected, non-error skip (e.g. pending creds)
             reason = f"{e}"[:300]
             store.record_run(src.id, "skipped", reason)

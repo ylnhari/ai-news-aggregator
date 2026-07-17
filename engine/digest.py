@@ -212,6 +212,10 @@ def _mesh_health(cfg, store, items):
     active = enabled_sources(sources)
     active_ids = [s.id for s in active]
     contributing = {it["source_id"] for it in items}
+    for it in items:
+        # cross-source duplicates count as contribution — the source is alive
+        contributing.update(a.get("source_id", "")
+                            for a in (it.get("extra") or {}).get("also_seen", []))
 
     errored = []
     pending = []  # sources that returned a clean SkipSource (e.g. pending creds)

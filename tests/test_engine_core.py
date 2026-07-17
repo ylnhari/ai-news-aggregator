@@ -52,6 +52,27 @@ class StoreTests(unittest.TestCase):
         c = self.store.upsert_item(item("https://x.com/post/", "T"))
         self.assertEqual((a, b, c), (True, False, False))
 
+    def test_cross_source_dup_records_also_seen(self):
+        # the Kimi K3 launch-day case: an aggregator catches a vendor post
+        # first; when the vendor's own feed fetches the same URL, the
+        # duplicate must be recorded on the item, not silently dropped
+        self.assertTrue(self.store.upsert_item(
+            item("https://kimi.com/blog/k3", "Kimi K3", source="hn-algolia")))
+        self.assertFalse(self.store.upsert_item(
+            item("https://kimi.com/blog/k3?utm_source=rss", "Kimi K3",
+                 source="kimi-blog")))
+        self.store.commit()
+        it = self.store.items_since(EPOCH)[0]
+        self.assertEqual(it["source_id"], "hn-algolia")
+        self.assertEqual([a["source_id"] for a in it["extra"]["also_seen"]],
+                         ["kimi-blog"])
+        # same source repeating must not grow the list
+        self.store.upsert_item(
+            item("https://kimi.com/blog/k3", "Kimi K3", source="kimi-blog"))
+        self.store.commit()
+        it = self.store.items_since(EPOCH)[0]
+        self.assertEqual(len(it["extra"]["also_seen"]), 1)
+
     def test_story_two_day_update(self):
         d1 = [item("https://a.com/1", "Gemma 4 released: open weights, 70B flagship"),
               item("https://b.com/2", "Google ships Gemma 4 open-weights model family")]
@@ -90,7 +111,10 @@ class DigestTests(unittest.TestCase):
             json.dump({"sources": [
                 {"id": "test", "tier": 1, "trust": 1.0, "transport": "rss",
                  "handler": "rss", "enabled": True,
-                 "url": "https://example.com/feed", "beats": []}]}, f)
+                 "url": "https://example.com/feed", "beats": []},
+                {"id": "vendor", "tier": 1, "trust": 1.0, "transport": "rss",
+                 "handler": "rss", "enabled": True,
+                 "url": "https://vendor.com/feed", "beats": []}]}, f)
         self.cfg = Config({"signaldesk_dir": ws,
                            "db_path": os.path.join(ws, "t.db")}, "test")
         self.store = Store(self.cfg.db_path)
@@ -113,6 +137,17 @@ class DigestTests(unittest.TestCase):
         self.assertIsNone(result, "guard must refuse to overwrite")
         with open(path, encoding="utf-8") as f:
             self.assertEqual(f.read(), judged)
+
+    def test_dup_only_source_not_reported_zero(self):
+        # a source whose only fetch this window was a cross-source duplicate
+        # is alive — it must not appear in mesh-health's zero list
+        from engine.digest import _mesh_health
+        self.store.upsert_item(item("https://a.com/k3", "K3", source="test"))
+        self.store.upsert_item(item("https://a.com/k3", "K3", source="vendor"))
+        self.store.commit()
+        mesh = _mesh_health(self.cfg, self.store,
+                            self.store.items_since(EPOCH))
+        self.assertNotIn("vendor", mesh["zero"])
 
     def test_go_deeper_capped(self):
         for i in range(MAX_DEEPER_LINKS + 8):
