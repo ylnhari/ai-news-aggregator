@@ -46,6 +46,7 @@ refactor](https://github.com/g/l/releases/tag/b10011) are the only
 user-facing changes.
 - 3 posts were tagged by keyword coincidence — none relevant; dropped.
 - [BIS bulletin PDF](https://www.bis.org/publ/bisbull120.pdf) — [hn-algolia]
+- Inkling notes — [simon-willison](https://simonwillison.net/2026/Jul/16/inkling) ↩ `evt-20260716-inkling`
 
 ## Weird future section
 
@@ -130,6 +131,14 @@ class RenderRobustness(unittest.TestCase):
         self.assertNotIn("hn-algolia", self.public)
         self.assertIn("hn-algolia", self.private)
         self.assertIn(">news.ycombinator.com<", self.public)
+
+    def test_story_tagged_beat_bullet_sanitized(self):
+        # collector-appended " ↩ `evt-…`" on a by-beat bullet must not break
+        # the bullet parse: public gets a clean domain chip, no evt-/sid leak;
+        # private keeps the thread tag as a muted chip
+        self.assertNotIn("simon-willison", self.public)
+        self.assertIn(">simonwillison.net<", self.public)
+        self.assertIn("↩ evt-20260716-inkling", self.private)
 
     def test_telemetry_never_public(self):
         # "47 items · 5 sources · run 09:09 IST" is desk accounting

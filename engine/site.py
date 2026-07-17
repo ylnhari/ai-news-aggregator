@@ -66,6 +66,9 @@ _SRC_BULLET_RE = re.compile(
     r"^-\s+`([^`]+)`\s*·\s*\[(.*)\]\(([^)]+)\)\s*[—-]\s*(.*)$")
 # By-beat bullet: - <title> — [sid](url)   (title may itself contain " — ")
 _BEAT_BULLET_RE = re.compile(r"^-\s+(.*)\s+[—-]\s+\[([^\]]+)\]\(([^)]+)\)\s*$")
+# Optional story-thread tag the collector appends to a by-beat bullet:
+# " ↩ `evt-…`" — parsed off before the bullet shape is matched.
+_BEAT_TAG_RE = re.compile(r"\s*↩\s*`(evt-[\w-]+)`\s*$")
 # Any inline markdown link, for defensive pass-through / url extraction.
 _LINK_RE = re.compile(r"\[([^\]]*)\]\((https?://[^)]+)\)")
 
@@ -216,14 +219,18 @@ def parse_digest(path):
             continue
 
         if section == "beat" and cur_beat is not None and stripped.startswith("- "):
-            bm = _BEAT_BULLET_RE.match(stripped)
+            tag_m = _BEAT_TAG_RE.search(stripped)
+            story_id = tag_m.group(1) if tag_m else ""
+            bullet = stripped[:tag_m.start()].rstrip() if tag_m else stripped
+            bm = _BEAT_BULLET_RE.match(bullet)
             if bm:
                 cur_beat["items"].append({
                     "title": bm.group(1).strip(), "sid": bm.group(2),
-                    "url": bm.group(3)})
+                    "url": bm.group(3), "story": story_id})
             else:
                 cur_beat["items"].append({
-                    "title": stripped[2:].strip(), "sid": "", "url": ""})
+                    "title": bullet[2:].strip(), "sid": "", "url": "",
+                    "story": story_id})
             continue
 
         if section == "mesh" and not footer_seen and stripped:
@@ -424,6 +431,9 @@ def _render_beats(beats, public=False, excluded=None):
                     chip = f'<span class="sid">{_esc(tag)}</span>'
             else:
                 chip = ""
+            # Story-thread tag: desk machinery — private edition only.
+            if it.get("story") and not public:
+                chip += f' <span class="sid">↩ {_esc(it["story"])}</span>'
             items += f'<li class="beat-item">{title}{chip}</li>'
         if not items:
             continue
