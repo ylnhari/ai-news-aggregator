@@ -7,7 +7,12 @@ sample Listing, and the blank-credential path is tested via a monkeypatched
 
 from datetime import datetime, timezone
 
-import pytest
+import unittest
+
+try:
+    import pytest
+except ImportError:  # dormant transport's tests are pytest-based; skip under stdlib unittest
+    raise unittest.SkipTest("pytest not installed (reddit transport is dormant; browser is the permanent transport)")
 
 from engine.registry import Source
 from engine.transports import SkipSource, reddit

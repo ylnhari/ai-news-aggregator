@@ -1,11 +1,15 @@
 """Tests for markdown -> ReportLab conversion (escaping is security-relevant)."""
 
 import sys
+import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from pdf_exporter import _md_to_rl
+try:
+    from pdf_exporter import _md_to_rl
+except ImportError as exc:  # reportlab is an optional dependency
+    raise unittest.SkipTest(f"optional dependency missing: {exc}")
 
 
 def test_escapes_xml_special_chars():

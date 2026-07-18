@@ -64,7 +64,14 @@
     "internlm",
     "seed-oss",
     "nemotron",
-    "granite"
+    "granite",
+    "muse-spark",
+    "mimo-",
+    "inkling",
+    "command-a",
+    "k2-think",
+    "bonsai",
+    "prism-ml"
   ],
   "beat_keywords": {
     "inference-serving": [
@@ -120,7 +127,11 @@
       "hunyuan",
       "stepfun",
       "internlm",
-      "seed-oss"
+      "seed-oss",
+      "muse spark",
+      "mimo-v",
+      "k2 think",
+      "bonsai"
     ],
     "frontier-releases": [
       "gpt-",
