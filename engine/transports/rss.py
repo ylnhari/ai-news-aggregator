@@ -5,8 +5,16 @@ expanded into one feed URL per repo (repo_feed_template). Otherwise the single
 `url` is fetched. Only items published at/after `since` are returned; items with
 no parseable date are kept (feeds often omit dates and we prefer over-reporting
 to silently dropping a real release).
+
+Repo-expanded feeds also get a build-tag noise filter (FLAGS.md 2026-07-18):
+some repos (llama.cpp) tag every CI build with a bare id like "b10056" and
+ship several a day. Each such tag shares no token/anchor with the next one,
+so it was opening its own single-item story every day. A title matching
+`release_tag_noise_regex` is dropped unless the title/body names a known
+model or architecture — see `_filter_noise_build_tags`.
 """
 
+import re
 import xml.etree.ElementTree as ET
 
 from . import http
@@ -83,6 +91,40 @@ def _mk(title, link, excerpt, pub, default_beats, repo_label):
     }
 
 
+def _filter_noise_build_tags(items, cfg):
+    """Drop bare per-build release tags (e.g. llama.cpp's "b10056") that name
+    no known model/architecture — recurring CI noise that would otherwise
+    open its own single-item story every day (FLAGS.md 2026-07-18).
+
+    Only ever touches items from repo-expanded GH release feeds (those carry
+    `extra["repo"]`, set by `_mk` when `source.repos` is configured); plain
+    RSS/Atom items are untouched. Only titles that FULLY match the noise
+    regex are candidates — real titles ("v1.2.3 — feature", "Release v5.14.0")
+    never match. Even a matching tag is kept if its title or excerpt mentions
+    a configured model/architecture keyword, so a build that actually adds a
+    named model is never suppressed.
+    """
+    if not getattr(cfg, "release_tag_filter_enabled", True):
+        return items
+    pattern = getattr(cfg, "release_tag_noise_regex", "") or ""
+    if not pattern:
+        return items
+    try:
+        noise_re = re.compile(pattern)
+    except re.error:
+        return items
+    keywords = getattr(cfg, "release_notable_model_keywords", None) or []
+
+    kept = []
+    for it in items:
+        if it.get("extra", {}).get("repo") and noise_re.match((it.get("title") or "").strip()):
+            hay = f"{it.get('title', '')} {it.get('excerpt', '')}".lower()
+            if not any(k in hay for k in keywords):
+                continue  # suppressed: bare build tag, no named model/arch
+        kept.append(it)
+    return kept
+
+
 def fetch(source, since, cfg):
     items = []
     errors = []
@@ -95,4 +137,4 @@ def fetch(source, since, cfg):
     if errors and not items:
         # every sub-feed failed → surface as a source failure
         raise RuntimeError("; ".join(errors[:3]))
-    return items
+    return _filter_noise_build_tags(items, cfg)

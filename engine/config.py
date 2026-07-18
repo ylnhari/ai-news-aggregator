@@ -39,6 +39,38 @@ class Config:
         self.beat_keywords = data.get("beat_keywords", {})
         self.default_beat_weight = float(data.get("default_beat_weight", 0.5))
         self.hn_points_norm = float(data.get("hn_points_norm", 200.0))
+        # --- gh-releases build-tag noise filter (FLAGS.md 2026-07-18) -------
+        # llama.cpp (and similar repos) tag every CI build "b12345" — a bare
+        # per-build tag with no semantic content — and ship several a day.
+        # Each opened its own single-item story since the tag itself shares
+        # no token/anchor with the next day's tag. Rather than change story
+        # fingerprinting, we suppress the noise at collection: a title that
+        # matches `release_tag_noise_regex` is dropped UNLESS its title or
+        # body names a known model/architecture (release_notable_model_keywords).
+        # Scoped to repo-expanded GH release feeds only (registry `repos:`
+        # entries); normal RSS items and real semantic-version releases never
+        # match the pattern, so nothing else is affected.
+        self.release_tag_filter_enabled = bool(
+            data.get("release_tag_filter_enabled", True)
+        )
+        self.release_tag_noise_regex = data.get(
+            "release_tag_noise_regex", r"^[a-zA-Z]\d{3,}$"
+        )
+        self.release_notable_model_keywords = [
+            k.lower() for k in data.get("release_notable_model_keywords", [])
+        ]
+        # --- hf-new-models quality gate (FLAGS.md 2026-07-18) ---------------
+        # The keyword match (hf_keywords) alone lets through ~95% personal
+        # fine-tune noise ("Qwen2-0.5B-GRPO-test" matches "qwen"). An upload
+        # now also needs EITHER a known-lab namespace (hf_known_labs, the
+        # "org/" prefix of the model id) OR enough downloads/likes to show
+        # real traction — whichever the model doesn't have, the other must
+        # clear the bar.
+        self.hf_known_labs = [
+            k.lower() for k in data.get("hf_known_labs", [])
+        ]
+        self.hf_min_downloads = int(data.get("hf_min_downloads", 100))
+        self.hf_min_likes = int(data.get("hf_min_likes", 5))
         # Public HTML edition byline (optional; empty = generic footer). The
         # engine carries no personal data — attribution comes from config.
         self.public_footer_name = data.get("public_footer_name", "")
