@@ -281,6 +281,10 @@
     {
       "label": "Model Comparison",
       "url": "bench.html"
+    },
+    {
+      "label": "Interactive Plot",
+      "url": "https://ylnhari.github.io/blog/posts/2026-07-13-open-source-vs-paid-frontier-llms/interactive.html"
     }
   ]
 }
