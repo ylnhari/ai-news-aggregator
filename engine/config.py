@@ -82,6 +82,12 @@ class Config:
             l for l in data.get("public_footer_links", [])
             if isinstance(l, dict) and l.get("label") and l.get("url")
         ]
+        # Optional top-of-page nav links rendered in the index topbar
+        # (e.g. a standing benchmark page): same shape as public_footer_links.
+        self.public_nav_links = [
+            l for l in data.get("public_nav_links", [])
+            if isinstance(l, dict) and l.get("label") and l.get("url")
+        ]
         # Optional: your workspace's git-host URL — private-edition pitch cards
         # link into it; empty = no link, cards still render.
         self.workspace_repo_url = data.get("workspace_repo_url", "")

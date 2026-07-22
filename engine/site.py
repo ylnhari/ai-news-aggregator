@@ -815,6 +815,9 @@ a:hover{text-decoration:underline;}
 .foot{margin-top:52px;padding-top:16px;border-top:1px solid var(--line);
   font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:.72rem;
   color:var(--muted);font-variant-numeric:tabular-nums;}
+.topnav{margin-top:8px;font-size:.85rem;}
+.topnav a{color:var(--muted);text-decoration:none;}
+.topnav a:hover{color:var(--accent);}
 .foot-links{margin-top:6px;}
 .foot-links a{color:var(--muted);}
 .foot-links a:hover{color:var(--accent);}
@@ -825,6 +828,7 @@ a:hover{text-decoration:underline;}
   align-items:baseline;padding:13px 4px;border-bottom:1px solid var(--line);
   color:var(--ink);}
 .idx-row:hover{text-decoration:none;background:var(--surface);}
+.idx-row[hidden]{display:none;}
 .idx-date{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
   font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;
   white-space:nowrap;}
@@ -916,9 +920,16 @@ def render_index_page(days, generated, public=False, cfg=None):
     days/YYYY-MM-DD.html page. Scales linearly in rows, not content."""
     wordmark = ('<div class="wordmark">AI SIGNAL '
                 '<span class="cursor">▮</span></div>')
+    nav_links = getattr(cfg, "public_nav_links", []) if cfg else []
+    nav = ""
+    if nav_links:
+        row = " &middot; ".join(
+            f'<a href="{_attr(l["url"])}">{_esc(l["label"])}</a>'
+            for l in nav_links)
+        nav = f'<div class="topnav">{row}</div>'
     body = (
         '<div class="ai-signal">'
-        f'<div class="topbar"><div class="topbar-inner">{wordmark}'
+        f'<div class="topbar"><div class="topbar-inner">{wordmark}{nav}'
         f'{_render_chips(days)}</div></div>'
         f'<main class="wrap">{_render_index_rows(days, public=public)}'
         f'{_footer(generated, public, cfg)}</main></div>')

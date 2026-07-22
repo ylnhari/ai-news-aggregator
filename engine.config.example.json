@@ -1,11 +1,16 @@
 {
-  "_comment": "Copy to engine.config.json (gitignored). As shipped it points at examples/workspace so `python -m engine run` works on a fresh clone (relative paths resolve against the repo root). For real use, point 'signaldesk_dir' at YOUR private workspace directory/repo — the one holding registry/sources.json and receiving digests/ — so the engine repo never contains your data. 'public_footer_*' personalize the public HTML edition's byline; leave empty for a generic footer.",
+  "_comment": "Copy to engine.config.json (gitignored). As shipped it points at examples/workspace so `python -m engine run` works on a fresh clone (relative paths resolve against the repo root). For real use, point 'signaldesk_dir' at YOUR private workspace directory/repo \u2014 the one holding registry/sources.json and receiving digests/ \u2014 so the engine repo never contains your data. 'public_footer_*' personalize the public HTML edition's byline; leave empty for a generic footer.",
   "signaldesk_dir": "examples/workspace",
   "db_path": "examples/workspace/data/signal.db",
   "public_footer_name": "",
   "public_footer_url": "",
   "public_footer_tagline": "",
-  "public_footer_links": [],
+  "public_footer_links": [
+    {
+      "label": "Model Bench",
+      "url": "bench.html"
+    }
+  ],
   "workspace_repo_url": "",
   "window_hours_first_run": 48,
   "default_beat_weight": 0.5,
@@ -271,5 +276,11 @@
       "diffusion model",
       "multimodal"
     ]
-  }
+  },
+  "public_nav_links": [
+    {
+      "label": "Model Comparison",
+      "url": "bench.html"
+    }
+  ]
 }
