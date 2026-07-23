@@ -843,6 +843,34 @@ a:hover{text-decoration:underline;}
   .idx-stats{display:none;}
 }
 
+/* index: wide two-column layout (feed + metadata sidebar) */
+.wrap.wide{max-width:1200px;}
+.topbar-inner.wide{max-width:1200px;}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:56px;
+  align-items:start;padding-top:26px;}
+.layout .idx{margin-top:0;}
+.side{display:flex;flex-direction:column;gap:16px;}
+.sidecard{background:var(--surface);border:1px solid var(--line);
+  border-radius:12px;padding:14px 18px 16px;}
+.side-h{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
+  text-transform:uppercase;letter-spacing:.08em;font-size:.68rem;
+  color:var(--muted);font-weight:600;margin:0 0 8px;}
+.side-about{margin:0;font-size:.9rem;color:var(--muted);line-height:1.55;}
+.side-list{list-style:none;margin:0;padding:0;}
+.side-list li{border-bottom:1px solid var(--line);}
+.side-list li:last-child{border-bottom:none;}
+.side-list a{display:block;padding:6px 0;color:var(--ink);font-size:.9rem;}
+.side-list a:hover{color:var(--accent);text-decoration:none;}
+.side-stats{display:grid;grid-template-columns:1fr auto;gap:4px 14px;margin:0;}
+.side-stats dt{color:var(--muted);font-size:.84rem;}
+.side-stats dd{margin:0;font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
+  font-size:.78rem;text-align:right;font-variant-numeric:tabular-nums;
+  align-self:baseline;}
+@media (max-width:960px){
+  .layout{grid-template-columns:1fr;gap:12px;}
+  .side{margin-top:30px;}
+}
+
 /* day-page nav */
 .daynav{display:flex;justify-content:space-between;gap:12px;margin-top:34px;
   font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:.76rem;}
@@ -915,24 +943,66 @@ def _shell(body, public, title, script="", cfg=None):
         f"{style}\n</head>\n<body>\n{body}\n{script}\n</body>\n</html>\n")
 
 
+def _fmt_pretty(date_obj, fmt="%b %-d, %Y"):
+    if os.name == "nt":
+        fmt = fmt.replace("%-d", "%#d")
+    return date_obj.strftime(fmt)
+
+
+def _render_index_sidebar(days, cfg):
+    """Metadata sidebar for the index (PyPI/GitHub-repo style): about, links,
+    archive stats. Everything personal comes from cfg — no cfg, no residue.
+    This is the single home of the site's links on the index page."""
+    cards = []
+    tagline = (getattr(cfg, "public_footer_tagline", "") if cfg else "") \
+        or "a daily curated AI news brief"
+    name = getattr(cfg, "public_footer_name", "") if cfg else ""
+    url = getattr(cfg, "public_footer_url", "") if cfg else ""
+    if name and url:
+        byline = f' By <a href="{_attr(url)}">{_esc(name)}</a>.'
+    elif name:
+        byline = f" By {_esc(name)}."
+    else:
+        byline = ""
+    cards.append('<div class="sidecard"><h2 class="side-h">About</h2>'
+                 f'<p class="side-about">AI SIGNAL &mdash; {_esc(tagline)}.'
+                 f'{byline}</p></div>')
+    seen, items = set(), []
+    for l in ((getattr(cfg, "public_nav_links", []) if cfg else [])
+              + (getattr(cfg, "public_footer_links", []) if cfg else [])):
+        if l["url"] in seen:
+            continue
+        seen.add(l["url"])
+        items.append(f'<li><a href="{_attr(l["url"])}">{_esc(l["label"])}</a></li>')
+    if items:
+        cards.append('<div class="sidecard"><h2 class="side-h">Explore</h2>'
+                     f'<ul class="side-list">{"".join(items)}</ul></div>')
+    dated = [d for d in days if d["date_obj"]]
+    if dated:
+        rows = (f'<dt>Editions</dt><dd>{len(dated)}</dd>'
+                f'<dt>Latest</dt><dd>{_esc(_fmt_pretty(dated[0]["date_obj"]))}</dd>'
+                f'<dt>Since</dt><dd>{_esc(_fmt_pretty(dated[-1]["date_obj"]))}</dd>')
+        cards.append('<div class="sidecard"><h2 class="side-h">Archive</h2>'
+                     f'<dl class="side-stats">{rows}</dl></div>')
+    return f'<aside class="side">{"".join(cards)}</aside>'
+
+
 def render_index_page(days, generated, public=False, cfg=None):
-    """The INDEX: wordmark + month/week chips + one row per day linking to its
-    days/YYYY-MM-DD.html page. Scales linearly in rows, not content."""
+    """The INDEX: wordmark + month/week chips up top, then a two-column layout —
+    day rows on the left, metadata sidebar (about/links/archive) on the right.
+    Scales linearly in rows, not content. The sidebar is the one home for the
+    site's links here, so the public index carries no duplicate footer."""
     wordmark = ('<div class="wordmark">AI SIGNAL '
                 '<span class="cursor">▮</span></div>')
-    nav_links = getattr(cfg, "public_nav_links", []) if cfg else []
-    nav = ""
-    if nav_links:
-        row = " &middot; ".join(
-            f'<a href="{_attr(l["url"])}">{_esc(l["label"])}</a>'
-            for l in nav_links)
-        nav = f'<div class="topnav">{row}</div>'
+    foot = "" if public else _footer(generated, public, cfg)
     body = (
         '<div class="ai-signal">'
-        f'<div class="topbar"><div class="topbar-inner">{wordmark}{nav}'
+        f'<div class="topbar"><div class="topbar-inner wide">{wordmark}'
         f'{_render_chips(days)}</div></div>'
-        f'<main class="wrap">{_render_index_rows(days, public=public)}'
-        f'{_footer(generated, public, cfg)}</main></div>')
+        '<main class="wrap wide"><div class="layout">'
+        f'<div>{_render_index_rows(days, public=public)}</div>'
+        f'{_render_index_sidebar(days, cfg)}'
+        f'</div>{foot}</main></div>')
     return _shell(body, public, "AI Signal", f"<script>{_SCRIPT}</script>",
                   cfg=cfg)
 
