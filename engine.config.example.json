@@ -1,5 +1,5 @@
 {
-  "_comment": "Copy to engine.config.json (gitignored). As shipped it points at examples/workspace so `python -m engine run` works on a fresh clone (relative paths resolve against the repo root). For real use, point 'signaldesk_dir' at YOUR private workspace directory/repo \u2014 the one holding registry/sources.json and receiving digests/ \u2014 so the engine repo never contains your data. 'public_footer_*' personalize the public HTML edition's byline; leave empty for a generic footer.",
+  "_comment": "Copy to engine.config.json (gitignored). As shipped it points at examples/workspace so `python -m engine run` works on a fresh clone (relative paths resolve against the repo root). For real use, point 'signaldesk_dir' at YOUR private workspace directory/repo — the one holding registry/sources.json and receiving digests/ — so the engine repo never contains your data. 'public_footer_*' personalize the public HTML edition's byline; leave empty for a generic footer.",
   "signaldesk_dir": "examples/workspace",
   "db_path": "examples/workspace/data/signal.db",
   "public_footer_name": "",
@@ -281,10 +281,16 @@
     {
       "label": "Model Comparison",
       "url": "bench.html"
+    }
+  ],
+  "public_author_links": [
+    {
+      "label": "Portfolio",
+      "url": "https://example.com"
     },
     {
-      "label": "Interactive Plot",
-      "url": "https://ylnhari.github.io/blog/posts/2026-07-13-open-source-vs-paid-frontier-llms/interactive.html"
+      "label": "GitHub",
+      "url": "https://github.com/you"
     }
   ]
 }

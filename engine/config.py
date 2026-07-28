@@ -82,10 +82,19 @@ class Config:
             l for l in data.get("public_footer_links", [])
             if isinstance(l, dict) and l.get("label") and l.get("url")
         ]
-        # Optional top-of-page nav links rendered in the index topbar
-        # (e.g. a standing benchmark page): same shape as public_footer_links.
+        # The publication's own work a reader might want next (a standing
+        # benchmark page, an interactive chart): rendered as "Explore" in the
+        # index sidebar. Same shape as public_footer_links.
         self.public_nav_links = [
             l for l in data.get("public_nav_links", [])
+            if isinstance(l, dict) and l.get("label") and l.get("url")
+        ]
+        # Who wrote it — personal profile links (portfolio, GitHub, LinkedIn),
+        # rendered as a separate "Author" card. Kept distinct from
+        # public_nav_links on purpose: a profile page and a benchmark are not
+        # the same kind of link and reading them in one list implies they are.
+        self.public_author_links = [
+            l for l in data.get("public_author_links", [])
             if isinstance(l, dict) and l.get("label") and l.get("url")
         ]
         # Optional: your workspace's git-host URL — private-edition pitch cards

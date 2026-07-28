@@ -630,6 +630,63 @@ def _render_index_rows(days, public=False):
     return f'<div class="idx">{rows}</div>'
 
 
+def _render_browse(days):
+    """Date navigation for the index, grouped month -> week with counts.
+
+    Replaces the flat chip bar, which put every month and a truncated handful
+    of weeks in one undifferentiated row: it stopped being readable within a
+    few weeks of dailies and silently hid the rest. Here every week is
+    reachable because weeks nest inside their month, and only the newest month
+    is expanded, so the control stays the same size as the archive grows.
+    """
+    months = []          # [(key, label, count, [(wkey, wlabel, wcount)])]
+    for d in days:
+        if not d["date_obj"]:
+            continue
+        mk = d["date_obj"].strftime("%Y-%m")
+        wmon = _week_monday(d["date_obj"])
+        wk = wmon.strftime("%Y-%m-%d")
+        wlabel = (wmon.strftime("%b %-d") if os.name != "nt"
+                  else wmon.strftime("%b %#d"))
+        mlabel = d["date_obj"].strftime("%B %Y")
+        m = next((x for x in months if x[0] == mk), None)
+        if m is None:
+            m = (mk, mlabel, [0], [])
+            months.append(m)
+        m[2][0] += 1
+        w = next((x for x in m[3] if x[0] == wk), None)
+        if w is None:
+            m[3].append((wk, wlabel, [1]))
+        else:
+            w[2][0] += 1
+
+    total = sum(m[2][0] for m in months)
+    if not total:
+        return ""
+
+    def btn(kind, value, label, count, pressed=False):
+        return (f'<button class="br-b" type="button" data-type="{_attr(kind)}" '
+                f'data-value="{_attr(value)}" '
+                f'aria-pressed="{"true" if pressed else "false"}">'
+                f'<span>{_esc(label)}</span>'
+                f'<span class="br-n">{count}</span></button>')
+
+    out = [btn("all", "", "All editions", total, pressed=True)]
+    for i, (mk, mlabel, mcount, weeks) in enumerate(months):
+        rows = [f'<div class="br-wk">{btn("month", mk, "Whole month", mcount[0])}']
+        for wk, wlabel, wcount in weeks:
+            rows.append(btn("week", wk, f"Week of {wlabel}", wcount[0]))
+        rows.append("</div>")
+        out.append(
+            f'<details class="br-mon"{" open" if i == 0 else ""}>'
+            f'<summary>{_esc(mlabel)}<span class="br-n">{mcount[0]}</span>'
+            f'</summary>{"".join(rows)}</details>')
+    out.append('<p class="br-none" hidden>No editions in that range.</p>')
+    return ('<div class="sidecard"><h2 class="side-h">Browse</h2>'
+            f'<nav class="browse" aria-label="Filter editions by month or week">'
+            f'{"".join(out)}</nav></div>')
+
+
 def _render_chips(days):
     months, weeks = [], []
     seen_m, seen_w = set(), set()
@@ -861,6 +918,33 @@ a:hover{text-decoration:underline;}
 .side-list li:last-child{border-bottom:none;}
 .side-list a{display:block;padding:6px 0;color:var(--ink);font-size:.9rem;}
 .side-list a:hover{color:var(--accent);text-decoration:none;}
+.browse{font-size:.9rem;}
+.br-b{display:flex;width:100%;align-items:baseline;gap:8px;background:none;
+  border:0;padding:5px 6px;border-radius:7px;cursor:pointer;color:var(--ink);
+  font:inherit;text-align:left;}
+.br-b:hover{background:var(--code-bg);}
+.br-b[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);}
+.br-b[aria-pressed="true"] .br-n{color:inherit;opacity:.8;}
+.br-n{margin-left:auto;font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
+  font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+.br-mon{border-top:1px solid var(--line);margin-top:4px;padding-top:4px;}
+.br-mon:first-of-type{border-top:0;margin-top:0;}
+.br-mon>summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;
+  gap:8px;padding:5px 6px;border-radius:7px;
+  font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:.78rem;
+  color:var(--muted);}
+.br-mon>summary::-webkit-details-marker{display:none;}
+.br-mon>summary::before{content:"\\25B8";transition:transform .15s ease;
+  display:inline-block;color:var(--accent);
+  /* the summary is monospace, and Consolas has no U+25B8 - it renders as
+     tofu unless the marker gets a font stack that actually carries it */
+  font-family:'Segoe UI Symbol','Apple Symbols',system-ui,sans-serif;}
+.br-mon[open]>summary::before{transform:rotate(90deg);}
+.br-mon>summary:hover{background:var(--code-bg);color:var(--ink);}
+.br-wk{margin:2px 0 6px;padding-left:12px;}
+.br-wk .br-b{font-size:.85rem;}
+.br-none{margin:8px 0 0;font-size:.82rem;color:var(--muted);}
+@media (prefers-reduced-motion:reduce){.br-mon>summary::before{transition:none;}}
 .side-stats{display:grid;grid-template-columns:1fr auto;gap:4px 14px;margin:0;}
 .side-stats dt{color:var(--muted);font-size:.84rem;}
 .side-stats dd{margin:0;font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
@@ -880,19 +964,27 @@ a:hover{text-decoration:underline;}
 
 _SCRIPT = """
 (function(){
-  var chips=document.querySelectorAll('.chip');
+  var btns=document.querySelectorAll('.br-b');
   var days=document.querySelectorAll('.idx-row');
+  var none=document.querySelector('.br-none');
+  if(!btns.length||!days.length){return;}
   function apply(type,value){
+    var shown=0;
     days.forEach(function(d){
       var show = type==='all' || d.dataset[type]===value;
       d.hidden = !show;
+      if(show){shown++;}
     });
+    if(none){none.hidden = shown>0;}
   }
-  chips.forEach(function(c){
-    c.addEventListener('click',function(){
-      chips.forEach(function(x){x.setAttribute('aria-pressed','false');});
-      c.setAttribute('aria-pressed','true');
-      apply(c.dataset.type, c.dataset.value);
+  btns.forEach(function(b){
+    b.addEventListener('click',function(){
+      btns.forEach(function(x){x.setAttribute('aria-pressed','false');});
+      b.setAttribute('aria-pressed','true');
+      apply(b.dataset.type, b.dataset.value);
+      // Opening a week inside a collapsed month should leave it open.
+      var mon=b.closest('details.br-mon');
+      if(mon){mon.open=true;}
     });
   });
 })();
@@ -967,16 +1059,29 @@ def _render_index_sidebar(days, cfg):
     cards.append('<div class="sidecard"><h2 class="side-h">About</h2>'
                  f'<p class="side-about">AI SIGNAL &mdash; {_esc(tagline)}.'
                  f'{byline}</p></div>')
-    seen, items = set(), []
-    for l in ((getattr(cfg, "public_nav_links", []) if cfg else [])
-              + (getattr(cfg, "public_footer_links", []) if cfg else [])):
-        if l["url"] in seen:
-            continue
-        seen.add(l["url"])
-        items.append(f'<li><a href="{_attr(l["url"])}">{_esc(l["label"])}</a></li>')
-    if items:
-        cards.append('<div class="sidecard"><h2 class="side-h">Explore</h2>'
-                     f'<ul class="side-list">{"".join(items)}</ul></div>')
+    cards.append(_render_browse(days))
+
+    # Two distinct link groups, deliberately NOT merged. "Explore" is the
+    # publication's own work a reader might want next; "Author" is who wrote it.
+    # They used to render as one list, which filed a personal profile and a
+    # LinkedIn page alongside the benchmark as though they were the same kind
+    # of thing.
+    def _links(key):
+        seen, items = set(), []
+        for l in (getattr(cfg, key, []) if cfg else []):
+            if l["url"] in seen:
+                continue
+            seen.add(l["url"])
+            items.append(
+                f'<li><a href="{_attr(l["url"])}">{_esc(l["label"])}</a></li>')
+        return items
+
+    for title, key in (("Explore", "public_nav_links"),
+                       ("Author", "public_author_links")):
+        items = _links(key)
+        if items:
+            cards.append(f'<div class="sidecard"><h2 class="side-h">{title}</h2>'
+                         f'<ul class="side-list">{"".join(items)}</ul></div>')
     dated = [d for d in days if d["date_obj"]]
     if dated:
         rows = (f'<dt>Editions</dt><dd>{len(dated)}</dd>'
@@ -998,7 +1103,7 @@ def render_index_page(days, generated, public=False, cfg=None):
     body = (
         '<div class="ai-signal">'
         f'<div class="topbar"><div class="topbar-inner wide">{wordmark}'
-        f'{_render_chips(days)}</div></div>'
+        '</div></div>'
         '<main class="wrap wide"><div class="layout">'
         f'<div>{_render_index_rows(days, public=public)}</div>'
         f'{_render_index_sidebar(days, cfg)}'

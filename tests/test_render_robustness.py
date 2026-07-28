@@ -188,7 +188,15 @@ class RenderRobustness(unittest.TestCase):
         self.assertNotIn('class="foot-links"', self.public)
         self.assertNotIn("curated by", self.public)
 
-    def test_week_chips_bounded(self):
+    def test_browse_groups_weeks_under_collapsed_months(self):
+        """Every week stays reachable, but only one month is expanded.
+
+        The old flat chip bar truncated to six week chips, so most of the
+        archive was simply unreachable from the index. Weeks now nest inside
+        their month, so the invariant is no longer "few weeks" but "all weeks,
+        one open month" — the control's resting size stays constant as the
+        archive grows.
+        """
         base = datetime(2026, 1, 5)
         days = []
         for w in range(30):
@@ -197,7 +205,15 @@ class RenderRobustness(unittest.TestCase):
             d["date"] = d["date_obj"].strftime("%Y-%m-%d")
             days.append(d)
         html = site.render_index_page(days, "now", public=True)
-        self.assertLessEqual(html.count('data-type="week"'), 6)
+
+        # no week is dropped
+        self.assertEqual(html.count('data-type="week"'), 30)
+        # one month group per distinct month, only the newest expanded
+        months = {d["date_obj"].strftime("%Y-%m") for d in days}
+        self.assertEqual(html.count('<details class="br-mon"'), len(months))
+        self.assertEqual(html.count('<details class="br-mon" open>'), 1)
+        # and the old always-visible chip bar is gone
+        self.assertNotIn('class="chips"', html)
 
 
 if __name__ == "__main__":
