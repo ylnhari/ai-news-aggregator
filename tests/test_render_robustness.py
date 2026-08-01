@@ -30,6 +30,8 @@ _Quiet day — nothing cleared the bar. 18 of 23 sources returned zero._
 
 Intel published an official 2-bit quantization of Gemma 4.
 
+↩ UPDATE to `evt-20260714-nvidia`
+
 <details><summary>Go deeper</summary>
 
 - `hn-algolia` · [Gemma 4 AutoRound thread](https://news.ycombinator.com/item?id=44) — 2026-07-15 06:20
@@ -131,6 +133,16 @@ class RenderRobustness(unittest.TestCase):
         self.assertNotIn("hn-algolia", self.public)
         self.assertIn("hn-algolia", self.private)
         self.assertIn(">news.ycombinator.com<", self.public)
+
+    def test_story_update_tag_stripped_from_public_gist(self):
+        # FLAGS 2026-07-19: "↩ UPDATE to `evt-…`" paragraphs inside a TOP-STORY
+        # gist leaked to the public page twice when left in by hand. The public
+        # renderer must strip them; the private edition keeps them.
+        self.assertNotIn("UPDATE to", self.public)
+        self.assertNotIn("↩", self.public)
+        self.assertIn("UPDATE to", self.private)
+        # the story's real gist text must survive the strip
+        self.assertIn("2-bit quantization", self.public)
 
     def test_story_tagged_beat_bullet_sanitized(self):
         # collector-appended " ↩ `evt-…`" on a by-beat bullet must not break

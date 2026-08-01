@@ -16,12 +16,25 @@ model or architecture — see `_filter_noise_build_tags`.
 
 import re
 import xml.etree.ElementTree as ET
+from datetime import timedelta
 
 from . import http
 from ..util import parse_date, strip_html, to_iso
 
 ATOM = "{http://www.w3.org/2005/Atom}"
 MEDIA = "{http://purl.org/dc/elements/1.1/}"
+
+
+def _window_cutoff(pub):
+    """Date-only pubDates (00:00:00 — the HF blog stamps some posts this way)
+    mean "sometime that day": a post published mid-day carries a midnight
+    stamp, so a same-day watermark filters it out forever (this silently
+    dropped The Stack v3 and the HF intrusion timeline, found at the
+    2026-08-01 distill). Treat a midnight stamp as publishable until the end
+    of its day; dedup makes any over-fetch harmless."""
+    if pub is not None and pub.hour == 0 and pub.minute == 0 and pub.second == 0:
+        return pub + timedelta(days=1)
+    return pub
 
 
 def _feed_urls(source):
@@ -45,7 +58,7 @@ def _parse(content: bytes, since, default_beats, repo_label):
         link = (el.findtext("link") or "").strip()
         desc = strip_html(el.findtext("description") or "")[:2000]
         pub = parse_date(el.findtext("pubDate") or "")
-        if pub and since and pub < since:
+        if pub and since and _window_cutoff(pub) < since:
             continue
         if not (link or title):
             continue
@@ -68,7 +81,7 @@ def _parse(content: bytes, since, default_beats, repo_label):
         pub = parse_date(
             entry.findtext(f"{ATOM}published") or entry.findtext(f"{ATOM}updated") or ""
         )
-        if pub and since and pub < since:
+        if pub and since and _window_cutoff(pub) < since:
             continue
         if not (link or title):
             continue

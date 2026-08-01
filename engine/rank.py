@@ -120,13 +120,24 @@ def rank_and_group(items, trust_by_source: dict, cfg):
     for i in range(n):
         clusters.setdefault(find(i), []).append(items[i])
 
+    # Single-link damp (recurring FLAGS 2026-07-28..31): a one-item group from
+    # a low-trust source is usually an HN submitter's headline, not
+    # corroborated news — momentum alone shouldn't put it above tier-1 vendor
+    # stories in the pre-rank. The judgment pass can still promote it.
+    damp = getattr(cfg, "single_link_damp", 0.6)
+    damp_trust_max = getattr(cfg, "single_link_damp_trust_max", 0.7)
+
     groups = []
     for members in clusters.values():
         members.sort(key=lambda x: x["_score"], reverse=True)
         primary = members[0]
+        score = primary["_score"]
+        if len(members) == 1 and \
+                trust_by_source.get(primary["source_id"], 0.5) <= damp_trust_max:
+            score = round(score * damp, 4)
         groups.append({
             "headline": primary.get("title", "") or "(untitled)",
-            "score": primary["_score"],
+            "score": score,
             "primary": primary,
             "items": members,
         })

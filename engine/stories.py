@@ -66,6 +66,12 @@ def assign_stories(store, groups, top_n, date_str):
             jac, cont = _overlap(g_tokens, st["_fp"])
             # A shared named-release anchor (gemma4, gpt5…) IS the story link,
             # whatever the surrounding words; else fall back to token overlap.
+            # KNOWN LIMITATION (FLAGS 07-19/21/22/23, distill 2026-08-01): a
+            # single shared anchor also links unrelated items that merely name
+            # the same model. Title tokens cannot separate those from real
+            # follow-ups (verified against the Gemma-4-regression case); the
+            # docstring's entity-extraction upgrade path is the real fix, the
+            # judgment pass the mitigation meanwhile.
             if (g_anchors & st["_anchors"]) or jac >= JACCARD_LINK \
                     or cont >= CONTAINMENT_LINK:
                 score = jac + (1.0 if g_anchors & st["_anchors"] else 0.0)

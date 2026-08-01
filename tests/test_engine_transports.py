@@ -130,6 +130,65 @@ class BuildTagFilterTests(unittest.TestCase):
         self.assertEqual(titles, {"b10057", "Release v5.14.0"})
 
 
+class RssWatermarkTests(unittest.TestCase):
+    """Date-only pubDates (midnight stamps) vs the daily watermark.
+
+    The HF blog stamps some posts 00:00:00: a post actually published mid-day
+    then sits BEFORE the next run's ~03:38Z watermark and is dropped forever
+    (missed The Stack v3 + the HF intrusion timeline; distill 2026-08-01).
+    A midnight stamp must count as publishable until the end of its day.
+    """
+
+    def setUp(self):
+        self._orig_get_bytes = transports_http.get_bytes
+
+    def tearDown(self):
+        transports_http.get_bytes = self._orig_get_bytes
+
+    def _plain_source(self):
+        return Source({
+            "id": "hf-blog", "tier": 2, "trust": 0.9,
+            "transport": "rss", "handler": "rss", "enabled": True,
+            "url": "https://example.com/feed.xml",
+            "beats": ["open-weights"],
+        })
+
+    def _rss_feed(self, pubdate):
+        xml = f"""<rss version="2.0"><channel>
+          <item><title>The Stack v3</title>
+            <link>https://example.com/stack-v3</link>
+            <description>open code dataset</description>
+            <pubDate>{pubdate}</pubDate></item>
+        </channel></rss>"""
+        return xml.encode("utf-8")
+
+    def _fetch(self, pubdate, since):
+        transports_http.get_bytes = lambda url, **kw: self._rss_feed(pubdate)
+        return rss.fetch(self._plain_source(), since, RssCfgStub)
+
+    def test_midnight_stamp_survives_same_day_watermark(self):
+        from datetime import datetime, timezone
+        since = datetime(2026, 7, 27, 3, 38, tzinfo=timezone.utc)
+        items = self._fetch("Mon, 27 Jul 2026 00:00:00 GMT", since)
+        self.assertEqual(len(items), 1,
+                         "midnight-stamped same-day post must not be dropped")
+
+    def test_midnight_stamp_still_expires_after_its_day(self):
+        from datetime import datetime, timezone
+        since = datetime(2026, 7, 29, 3, 38, tzinfo=timezone.utc)
+        items = self._fetch("Mon, 27 Jul 2026 00:00:00 GMT", since)
+        self.assertEqual(items, [], "two-day-old post must still be filtered")
+
+    def test_real_timestamps_unaffected(self):
+        from datetime import datetime, timezone
+        since = datetime(2026, 7, 27, 3, 38, tzinfo=timezone.utc)
+        kept = self._fetch("Mon, 27 Jul 2026 09:30:00 GMT", since)
+        dropped = self._fetch("Mon, 27 Jul 2026 01:30:00 GMT", since)
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(dropped, [],
+                         "a real pre-watermark timestamp must still filter")
+
+
 class HfCfgStub:
     hf_keywords = ["qwen", "llama"]
     hf_known_labs = ["qwen", "meta-llama"]

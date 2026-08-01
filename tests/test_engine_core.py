@@ -101,6 +101,58 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(open_now[0]["item_count"], 3)
 
 
+class SingleLinkDampTests(unittest.TestCase):
+    """Recurring FLAGS 2026-07-28..31: heuristic top-rank kept promoting
+    single-link low-trust (HN) hits above tier-1 vendor stories on momentum
+    alone. A one-item group from a low-trust source is damped; corroborated
+    groups and trusted sources are not."""
+
+    TRUST = {"hn-algolia": 0.7, "vendor-news": 1.0}
+
+    def _hn(self, url, title, points=200):
+        it = item(url, title, source="hn-algolia")
+        it["extra"] = {"hn_points": points}
+        return it
+
+    def test_single_link_hn_hit_is_damped(self):
+        groups = rank.rank_and_group(
+            [self._hn("https://a.com/1", "Gaming mouse firmware teardown")],
+            self.TRUST, CfgStub)
+        # base 0.7*0.5 + momentum 1.0 = 1.35, damped by the 0.6 default
+        self.assertAlmostEqual(groups[0]["score"], round(1.35 * 0.6, 4))
+
+    def test_vendor_story_now_outranks_single_hn_hit(self):
+        class DampCfg(CfgStub):
+            beat_weights = {"frontier-releases": 1.0}
+        vendor = item("https://vendor.com/launch", "Frontier model launched",
+                      source="vendor-news")
+        vendor["beats"] = ["frontier-releases"]
+        groups = rank.rank_and_group(
+            [self._hn("https://a.com/1", "Gaming mouse firmware teardown"),
+             vendor],
+            self.TRUST, DampCfg)
+        # vendor 1.0*1.0 = 1.0 beats the damped HN hit (1.35*0.6 = 0.81);
+        # pre-damp the HN hit would have won 1.35 vs 1.0
+        self.assertEqual(groups[0]["primary"]["source_id"], "vendor-news")
+
+    def test_corroborated_low_trust_group_not_damped(self):
+        groups = rank.rank_and_group(
+            [self._hn("https://a.com/1", "Gemma 4 quantization regression found"),
+             self._hn("https://b.com/2", "Gemma 4 GGUF quantization regression thread",
+                      points=10)],
+            self.TRUST, CfgStub)
+        self.assertEqual(len(groups), 1, "echoes should group")
+        self.assertAlmostEqual(groups[0]["score"], 1.35,
+                               msg="multi-item group keeps its full score")
+
+    def test_trusted_single_item_not_damped(self):
+        groups = rank.rank_and_group(
+            [item("https://vendor.com/launch", "Frontier model launched",
+                  source="vendor-news")],
+            self.TRUST, CfgStub)
+        self.assertAlmostEqual(groups[0]["score"], 0.5)
+
+
 class DigestTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()

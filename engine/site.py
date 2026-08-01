@@ -69,6 +69,11 @@ _BEAT_BULLET_RE = re.compile(r"^-\s+(.*)\s+[—-]\s+\[([^\]]+)\]\(([^)]+)\)\s*$"
 # Optional story-thread tag the collector appends to a by-beat bullet:
 # " ↩ `evt-…`" — parsed off before the bullet shape is matched.
 _BEAT_TAG_RE = re.compile(r"\s*↩\s*`(evt-[\w-]+)`\s*$")
+# Story-thread machinery inside a TOP-STORY gist ("↩ UPDATE to `evt-…`", or a
+# bare `evt-…` code token) — stripped from PUBLIC gists; the private edition
+# keeps it (FLAGS 2026-07-19: leaked twice when left in by hand).
+_STORY_TAG_RE = re.compile(
+    r"↩\s*(?:UPDATE\s+to\s+)?`evt-[\w-]+`\.?|`evt-[\w-]+`|↩")
 # Any inline markdown link, for defensive pass-through / url extraction.
 _LINK_RE = re.compile(r"\[([^\]]*)\]\((https?://[^)]+)\)")
 
@@ -338,6 +343,14 @@ def _render_story(story, public=False):
     if para:
         paras.append(" ".join(para))
     for p in paras:
+        if public:
+            # Desk machinery must never reach a stranger: strip story-thread
+            # tags ("↩ UPDATE to `evt-…`") and bare evt- code tokens from
+            # public gists (FLAGS 2026-07-19, leaked twice when the judge
+            # forgot to delete them by hand).
+            p = _STORY_TAG_RE.sub("", p).strip()
+            if not p:
+                continue
         gist_html += f"<p>{_md_inline(p)}</p>"
 
     src_rows = ""
