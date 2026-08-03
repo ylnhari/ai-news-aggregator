@@ -1,6 +1,6 @@
 # Agent Instructions — ai-news-aggregator
 
-> **Setup:** copy `AGENTIC.local.md.example` → `AGENTIC.local.md` (gitignored, auto-loaded if present) and fill in your machine-local values. Personal/global preferences live in your own agent's global instructions file.
+> **Setup:** copy `AGENTIC.local.md.example` → `AGENTIC.local.md` (gitignored) for machine-local notes. It is read only when the active host has a verified adapter that explicitly loads it. Personal/global preferences live in your own agent's global instructions file.
 
 ## Role
 Act as a Python backend engineer focused on cost-free, production-quality data pipelines.
