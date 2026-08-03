@@ -1,6 +1,9 @@
 # Claude personal/machine-local memory (template .example is committed)
 CLAUDE.local.md
 
+# Agent-neutral personal/machine-local memory (template .example is committed)
+AGENTIC.local.md
+
 # Environment and secrets
 .env
 .env.local

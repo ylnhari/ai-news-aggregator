@@ -1,0 +1,7 @@
+# Personal / machine-local — ai-news-aggregator
+# Copy this file to AGENTIC.local.md (gitignored) and fill in your values.
+# Auto-loaded alongside AGENTS.md, if present, by any agent that supports it.
+
+- Repo path: <absolute path to this repo on your machine>
+- GEMINI_API_KEY: in .env (gitignored) — never commit. Get one free at https://aistudio.google.com/
+- (optional) Any personal notes for this project.
