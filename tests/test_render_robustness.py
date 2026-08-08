@@ -38,6 +38,18 @@ Intel published an official 2-bit quantization of Gemma 4.
 
 </details>
 
+### Widget Corp ships WidgetLM v2
+
+↩ UPDATE to `evt-20260710-widgetlm` (first seen 2026-07-10, 4 prior items) — prior state: preview: WidgetLM v1 announced, no weights yet
+
+Widget Corp released WidgetLM v2 with open weights and a new benchmark suite.
+
+<details><summary>Go deeper</summary>
+
+- `hn-algolia` · [WidgetLM v2 launch](https://news.ycombinator.com/item?id=45) — 2026-07-15 07:10
+
+</details>
+
 ## By beat
 
 ### inference-serving
@@ -143,6 +155,20 @@ class RenderRobustness(unittest.TestCase):
         self.assertIn("UPDATE to", self.private)
         # the story's real gist text must survive the strip
         self.assertIn("2-bit quantization", self.public)
+
+    def test_story_update_continuity_trailer_stripped_from_public_gist(self):
+        # FLAGS 2026-08-07: the tag-only strip left the "(first seen …, N
+        # prior items) — prior state: …" trailer behind as its own visible
+        # paragraph, leaking desk continuity bookkeeping onto the public
+        # page (caught live on an already-published day, not just this
+        # fixture). The whole continuity paragraph must be dropped, not just
+        # the "↩ UPDATE to `evt-…`" token inside it.
+        self.assertNotIn("prior state", self.public)
+        self.assertNotIn("prior items", self.public)
+        self.assertNotIn("WidgetLM v1", self.public)
+        self.assertIn("prior state", self.private)
+        # the story's real gist text must survive
+        self.assertIn("open weights and a new benchmark suite", self.public)
 
     def test_story_tagged_beat_bullet_sanitized(self):
         # collector-appended " ↩ `evt-…`" on a by-beat bullet must not break

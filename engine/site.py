@@ -205,10 +205,22 @@ def parse_digest(path):
             continue
 
         if section == "top" and cur_story is not None:
-            if not stripped or stripped.startswith("<details") \
+            if stripped.startswith("<details") \
                     or stripped.startswith("<summary") \
                     or stripped.startswith("</details") \
                     or stripped.startswith("</summary"):
+                continue
+            if not stripped:
+                # A blank line inside a top story is a paragraph break — keep
+                # it as a marker so _render_story can split the gist into
+                # separate <p>s (FLAGS 2026-08-07: every gist was silently
+                # collapsing into one merged paragraph because this blank
+                # was dropped outright, which is also why the "↩ UPDATE to
+                # `evt-…` (first seen…) — prior state: …" continuity line
+                # never separated cleanly from the real gist text on the
+                # public page).
+                if cur_story["gist"] and cur_story["gist"][-1] != "":
+                    cur_story["gist"].append("")
                 continue
             sm = _SRC_BULLET_RE.match(stripped)
             if sm:
@@ -344,10 +356,15 @@ def _render_story(story, public=False):
         paras.append(" ".join(para))
     for p in paras:
         if public:
-            # Desk machinery must never reach a stranger: strip story-thread
-            # tags ("↩ UPDATE to `evt-…`") and bare evt- code tokens from
-            # public gists (FLAGS 2026-07-19, leaked twice when the judge
-            # forgot to delete them by hand).
+            # Desk machinery must never reach a stranger: drop the whole
+            # continuity paragraph ("↩ UPDATE to `evt-…` (first seen …,
+            # N prior items) — prior state: …") from public gists, not just
+            # the tag token inside it (FLAGS 2026-08-07: the old tag-only
+            # strip left the "(first seen…) — prior state: …" trailer
+            # behind, leaking desk bookkeeping onto already-published public
+            # pages). Also strip bare evt- code tokens from real gist text.
+            if p.lstrip().startswith("↩") or "prior state:" in p.lower():
+                continue
             p = _STORY_TAG_RE.sub("", p).strip()
             if not p:
                 continue
