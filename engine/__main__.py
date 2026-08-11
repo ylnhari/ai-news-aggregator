@@ -1,4 +1,4 @@
-"""CLI: python -m engine {collect|digest|run|prune|doctor|site|stories|story-state}
+"""CLI: python -m engine {collect|digest|run|prune|doctor|site|stories|story-state|notify}
 
   collect     fetch every enabled source since its watermark; store new items.
   digest      build a Markdown digest from recently-fetched items (--hours window).
@@ -8,6 +8,7 @@
   site        render the HTML edition ("AI Signal") into signaldesk/site/.
   stories     list tracked events (--days window; --id evt-x shows its items).
   story-state set an event's one-line state (the judgment pass refines these).
+  notify      push the day's top headline to NTFY_TOPIC, tap-to-open Click link.
 """
 
 import argparse
@@ -119,6 +120,18 @@ def cmd_story_state(cfg, args):
     return 0 if ok else 1
 
 
+def cmd_notify(cfg, args):
+    from datetime import datetime
+    from .config import IST
+    from .notify import send_daily_push
+
+    date_str = args.date or datetime.now(IST).strftime("%Y-%m-%d")
+    digest_path = os.path.join(cfg.digests_dir, f"{date_str}.md")
+    result = send_daily_push(cfg, digest_path, date_str)
+    print(("sent: " if result.sent else "not sent: ") + result.detail)
+    return 0 if result.sent else 1
+
+
 def cmd_site(cfg, args):
     print("== signaldesk engine: site (HTML edition) ==")
     from .site import build_site
@@ -153,6 +166,8 @@ def main(argv=None):
     ss = sub.add_parser("story-state", help="set an event's one-line state")
     ss.add_argument("id")
     ss.add_argument("state")
+    nf = sub.add_parser("notify", help="push the day's top headline to NTFY_TOPIC")
+    nf.add_argument("--date", help="YYYY-MM-DD (default: today, IST)")
 
     args = parser.parse_args(argv)
 
@@ -181,6 +196,8 @@ def main(argv=None):
         return cmd_stories(cfg, args)
     elif args.command == "story-state":
         return cmd_story_state(cfg, args)
+    elif args.command == "notify":
+        return cmd_notify(cfg, args)
     return 0
 
 

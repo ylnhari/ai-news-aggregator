@@ -100,6 +100,12 @@ class Config:
         # Optional: your workspace's git-host URL — private-edition pitch cards
         # link into it; empty = no link, cards still render.
         self.workspace_repo_url = data.get("workspace_repo_url", "")
+        # Optional: base URL for the public site's day pages (no trailing
+        # slash needed either way), e.g. "https://you.github.io/ai-signal/days".
+        # `engine notify` appends "/YYYY-MM-DD.html" to build the Click-header
+        # link on the daily push. Empty = push still sends, just without a
+        # tap-to-open link.
+        self.public_site_days_base_url = data.get("public_site_days_base_url", "")
 
     @staticmethod
     def _abs(p: str) -> str:

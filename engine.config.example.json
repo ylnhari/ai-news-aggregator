@@ -1,5 +1,5 @@
 {
-  "_comment": "Copy to engine.config.json (gitignored). As shipped it points at examples/workspace so `python -m engine run` works on a fresh clone (relative paths resolve against the repo root). For real use, point 'signaldesk_dir' at YOUR private workspace directory/repo — the one holding registry/sources.json and receiving digests/ — so the engine repo never contains your data. 'public_footer_*' personalize the public HTML edition's byline; leave empty for a generic footer.",
+  "_comment": "Copy to engine.config.json (gitignored). As shipped it points at examples/workspace so `python -m engine run` works on a fresh clone (relative paths resolve against the repo root). For real use, point 'signaldesk_dir' at YOUR private workspace directory/repo — the one holding registry/sources.json and receiving digests/ — so the engine repo never contains your data. 'public_footer_*' personalize the public HTML edition's byline; leave empty for a generic footer. 'public_site_days_base_url' is the public site's day-page root (e.g. 'https://you.github.io/ai-signal/days'); set it to get a tap-to-open link on the `engine notify` push, leave empty to send without one.",
   "signaldesk_dir": "examples/workspace",
   "db_path": "examples/workspace/data/signal.db",
   "public_footer_name": "",
@@ -12,6 +12,7 @@
     }
   ],
   "workspace_repo_url": "",
+  "public_site_days_base_url": "",
   "window_hours_first_run": 48,
   "default_beat_weight": 0.5,
   "hn_points_norm": 200,
