@@ -23,6 +23,7 @@ MAX_DEEPER_LINKS = 12     # cap the per-story "Go deeper" list (viral clusters)
 MAX_BEAT_GROUPS = 40      # cap the By-beat tail (backlog dumps after outages)
 PENDING_MARKER = "LLM judgment pass pending"
 META_RE = re.compile(r"<!--\s*meta:\s*items=(\d+)\s+groups=(\d+)\s+top=\"(.*?)\"\s*-->")
+_DIGEST_FILENAME_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})\.md$")
 
 
 def _ist_now():
@@ -291,6 +292,38 @@ def regenerate_index(cfg):
     with open(os.path.join(digests_dir, "INDEX.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(L))
     return len(entries)
+
+
+def last_digest_before(cfg, date_str):
+    """mtime of the most recently written digest file dated strictly before
+    `date_str` (an IST "YYYY-MM-DD" digest filename), or None if none exists.
+
+    Used to anchor `cmd_run`'s digest window on "since the last digest was
+    written" rather than "since this invocation started" (FLAGS.md
+    2026-08-27): a retry of `engine run` later the same day must not anchor
+    on the in-progress digest THAT SAME RUN is about to rewrite -- doing so
+    would silently drop whatever the first, partially-failed pass already
+    collected, even though nothing was lost from the store. Excluding
+    `date_str` itself means any number of same-day retries keep resolving to
+    the same wide, correct window (the last completed prior-day digest);
+    only the very first digest ever written has no such anchor and falls
+    back to the caller's own run-start time.
+    """
+    latest_mtime = None
+    for path in glob.glob(os.path.join(cfg.digests_dir, "*.md")):
+        name = os.path.basename(path)
+        m = _DIGEST_FILENAME_RE.match(name)
+        if not m or m.group(1) >= date_str:
+            continue
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            continue
+        if latest_mtime is None or mtime > latest_mtime:
+            latest_mtime = mtime
+    if latest_mtime is None:
+        return None
+    return datetime.fromtimestamp(latest_mtime, timezone.utc)
 
 
 def build_digest(cfg, store, since):

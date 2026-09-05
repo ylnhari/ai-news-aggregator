@@ -26,6 +26,42 @@ JACCARD_LINK = 0.35        # symmetric similarity
 CONTAINMENT_LINK = 0.6     # most of the (short) new headline is known tokens
 MATCH_WINDOW_DAYS = 10     # research consensus: story clusters cap ~10 days
 
+# Generic/cross-topic vocabulary that recurs across UNRELATED models' own
+# coverage and must never, by itself, link a new item to an event that was
+# actually about a different model -- a shared tier suffix ("flash", "sol":
+# Gemini Flash, GLM Flash, Qwen Flash, GPT Sol are different families) or
+# shared distribution/technique jargon ("locally runnable via Unsloth"
+# appearing verbatim in both a Qwen HN post and an unrelated GLM-5.3 event).
+# FLAGS.md 2026-09-02/2026-09-04: a Qwen item was auto-linked to the GLM-5.3
+# event on (at least) three separate days purely over that shared phrase.
+# Recommendation filed ledger/2026-W33.md §system-health.
+#
+# Scoped to CROSS-DAY matching only (not rank.py's same-day grouping): an
+# open story's fingerprint keeps growing every time it's touched, so a short
+# new headline's few remaining tokens can end up almost ENTIRELY contained
+# in that big accumulated set (exactly what CONTAINMENT_LINK exists to
+# catch) even when the new item is about a different model entirely.
+# Same-day grouping compares two short headlines directly, where this
+# failure mode doesn't arise the same way -- filtering there too was tried
+# and cost a legitimate same-day merge (two GLM-5.3 items whose only
+# non-anchor shared words happened to be exactly these), so that's left
+# alone; rank.py's _ANCHOR_STOP instead gained "flash"/"sol" so they can
+# never form a false anchor either.
+_CROSS_TOPIC_STOP = {"flash", "sol", "unsloth", "locally", "runnable"}
+# Bare version/size fragments ("27b", "70b", "1t", "8b") are meaningless
+# without the model name attached; anchors are unaffected since _ANCHOR_RE
+# binds a number to its preceding name before this filter ever runs.
+_VERSION_FRAGMENT_RE = re.compile(r"^\d+(?:\.\d+)?[a-z]?$")
+
+
+def _salient(tokens):
+    """Strip generic cross-topic words and bare version/size fragments from
+    a token set before it's used for cross-day story matching -- these must
+    not by themselves establish a match; genuine identity still comes
+    through _anchors() or whatever real content words remain."""
+    return {t for t in tokens
+            if t not in _CROSS_TOPIC_STOP and not _VERSION_FRAGMENT_RE.match(t)}
+
 
 def slugify(title: str, max_tokens: int = 4) -> str:
     toks = [t for t in _SLUG_RE.split((title or "").lower()) if t][:max_tokens]
@@ -48,7 +84,7 @@ def assign_stories(store, groups, top_n, date_str):
     open_before = store.open_stories(days=MATCH_WINDOW_DAYS)
     for st in open_before:
         fp = set((st["fingerprint"] or "").split())
-        st["_fp"] = {t for t in fp if not t.startswith("#")}
+        st["_fp"] = _salient({t for t in fp if not t.startswith("#")})
         st["_anchors"] = {t[1:] for t in fp if t.startswith("#")}
 
     for gi, g in enumerate(groups):
@@ -60,10 +96,11 @@ def assign_stories(store, groups, top_n, date_str):
                 else _anchors(it.get("title", ""))
         if not g_tokens:
             continue
+        g_tokens_salient = _salient(g_tokens)
 
         best, best_j = None, -1.0
         for st in open_before:
-            jac, cont = _overlap(g_tokens, st["_fp"])
+            jac, cont = _overlap(g_tokens_salient, st["_fp"])
             # A shared named-release anchor (gemma4, gpt5…) IS the story link,
             # whatever the surrounding words; else fall back to token overlap.
             # KNOWN LIMITATION (FLAGS 07-19/21/22/23, distill 2026-08-01): a

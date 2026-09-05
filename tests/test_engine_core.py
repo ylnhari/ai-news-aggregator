@@ -153,6 +153,81 @@ class SingleLinkDampTests(unittest.TestCase):
         self.assertAlmostEqual(groups[0]["score"], 0.5)
 
 
+class AnchorStoplistTests(unittest.TestCase):
+    """FLAGS.md 2026-09-02/2026-09-04: a Qwen HN post was repeatedly
+    auto-linked (via anchor-token/Jaccard/containment overlap) to an
+    unrelated GLM-5.3 event purely because both mention "locally runnable
+    via Unsloth" -- generic distribution jargon, not a shared model
+    identity. Recommendation filed ledger/2026-W33.md §system-health."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.store = Store(os.path.join(self.tmp, "t.db"))
+
+    def tearDown(self):
+        self.store.close()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_generic_shared_vocabulary_does_not_cross_link_models(self):
+        glm_items = [
+            item("https://a.com/1",
+                 "GLM-5.3-Flash lands with day-one support, "
+                 "locally runnable via Unsloth"),
+            item("https://b.com/2",
+                 "Z.ai ships GLM-5.3 Flash, locally runnable via Unsloth "
+                 "with MTP speedups"),
+        ]
+        for it in glm_items:
+            self.store.upsert_item(it)
+        self.store.commit()
+        groups = rank.rank_and_group(self.store.items_since(EPOCH),
+                                     {"test": 1.0}, CfgStub)
+        stories.assign_stories(self.store, groups, top_n=7,
+                               date_str="2026-09-03")
+        glm_story_id = self.store.open_stories()[0]["id"]
+
+        # Different model family, but the same generic phrase -- must NOT
+        # link to the GLM-5.3 event.
+        self.store.upsert_item(item(
+            "https://c.com/3",
+            "Qwen3.8-Flash-Next ships, locally runnable via Unsloth"))
+        self.store.commit()
+        day2 = [i for i in self.store.items_since(EPOCH)
+                if "qwen3" in i["title"].lower()]
+        groups2 = rank.rank_and_group(day2, {"test": 1.0}, CfgStub)
+        stories.assign_stories(self.store, groups2, top_n=7,
+                               date_str="2026-09-04")
+        self.assertTrue(
+            groups2[0]["story"] is None
+            or groups2[0]["story"]["id"] != glm_story_id,
+            "a Qwen item must not auto-link to the GLM-5.3 event just "
+            "because both mention 'locally runnable via Unsloth'")
+
+    def test_true_positive_same_model_continuation_still_links(self):
+        # Must keep working: a genuine follow-up naming the same versioned
+        # model (the anchor mechanism) still links as an UPDATE.
+        self.store.upsert_item(item(
+            "https://a.com/1",
+            "GLM-5.3 launches with a staged, safety-hardened rollout"))
+        self.store.commit()
+        groups = rank.rank_and_group(self.store.items_since(EPOCH),
+                                     {"test": 1.0}, CfgStub)
+        stories.assign_stories(self.store, groups, top_n=7,
+                               date_str="2026-09-03")
+
+        self.store.upsert_item(item(
+            "https://b.com/2",
+            "GLM-5.3 hits new open-weights benchmark records"))
+        self.store.commit()
+        day2 = [i for i in self.store.items_since(EPOCH)
+                if "benchmark" in i["title"].lower()]
+        groups2 = rank.rank_and_group(day2, {"test": 1.0}, CfgStub)
+        stories.assign_stories(self.store, groups2, top_n=7,
+                               date_str="2026-09-04")
+        self.assertIsNotNone(groups2[0]["story"])
+        self.assertEqual(groups2[0]["story"]["status"], "update")
+
+
 class DigestTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()

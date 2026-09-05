@@ -19,7 +19,7 @@ from datetime import timedelta
 from .config import load_config, ConfigError, IST
 from .store import Store, now_utc
 from .collect import collect as run_collect
-from .digest import build_digest, regenerate_index
+from .digest import build_digest, regenerate_index, last_digest_before
 from . import doctor as doctor_mod
 
 
@@ -66,7 +66,14 @@ def cmd_run(cfg, args):
     store = Store(cfg.db_path)
     report = run_collect(cfg, store=store, verbose=True)
     _summary(report)
-    path = build_digest(cfg, store, report["run_started"])
+    run_started = report["run_started"]
+    today_str = run_started.astimezone(IST).strftime("%Y-%m-%d")
+    # Digest window: since the last digest was written, not since this
+    # invocation started (FLAGS.md 2026-08-27) -- a retry of `run` after a
+    # partial failure must still see everything the first pass collected.
+    # Falls back to this run's own start only on the very first digest ever.
+    since = last_digest_before(cfg, today_str) or run_started
+    path = build_digest(cfg, store, since)
     store.close()
     print()
     if path is None:
@@ -89,7 +96,29 @@ def cmd_doctor(cfg, args):
     return doctor_mod.run(cfg)
 
 
+def _make_stdout_encoding_safe():
+    """Reconfigure stdout so printing never raises UnicodeEncodeError.
+
+    Windows consoles commonly default stdout to cp1252 (or another narrow
+    codepage); any stored item title containing a character outside that
+    codepage -- a non-breaking hyphen, an emoji, anything -- crashes a bare
+    `print()` (FLAGS.md 2026-08-25, 2026-08-27). `.reconfigure()` exists on
+    every real TextIOWrapper stdout since Python 3.7; swapping its error
+    handler to "replace" degrades unencodable characters to a placeholder
+    instead of raising, for ANY character outside the console's codepage --
+    not a fix for one specific character. A stdout without `.reconfigure()`
+    (e.g. a test harness's plain StringIO) is left alone.
+    """
+    stdout = sys.stdout
+    if hasattr(stdout, "reconfigure"):
+        try:
+            stdout.reconfigure(errors="replace")
+        except (ValueError, OSError):
+            pass
+
+
 def cmd_stories(cfg, args):
+    _make_stdout_encoding_safe()
     store = Store(cfg.db_path)
     if args.id:
         items = store.story_items(args.id)

@@ -27,7 +27,14 @@ def _tokens(title: str):
 # release is the strongest signal that two headlines are the same story, even
 # when every other word differs ("X released" vs "bug found in X").
 _ANCHOR_RE = re.compile(r"\b([a-z][a-z]{2,})[\s\-]?v?(\d+(?:\.\d+)?)\b")
-_ANCHOR_STOP = _STOP | {"top", "best", "part", "year", "week", "day", "step"}
+# "flash"/"sol" are shared TIER suffixes, not model identities (Gemini Flash,
+# GLM Flash, Qwen Flash, GPT Sol are all different families) -- excluded so
+# e.g. "Flash 4" never anchors two unrelated releases together. Recommended
+# in ledger/2026-W33.md §system-health (filed, not applied at the time);
+# applied now alongside the cross-topic stoplist in stories.py that closes
+# the related FLAGS.md 2026-09-02/2026-09-04 false links.
+_ANCHOR_STOP = _STOP | {"top", "best", "part", "year", "week", "day", "step",
+                        "flash", "sol"}
 
 
 def _anchors(title: str):
