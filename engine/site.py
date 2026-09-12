@@ -1021,7 +1021,7 @@ _SCRIPT = """
 """
 
 
-def _footer(generated, public, cfg=None):
+def _footer(generated, public, cfg=None, link_prefix=""):
     if public:
         name = getattr(cfg, "public_footer_name", "") if cfg else ""
         url = getattr(cfg, "public_footer_url", "") if cfg else ""
@@ -1037,8 +1037,13 @@ def _footer(generated, public, cfg=None):
             byline = ""
         contact = ""
         if links:
+            # link_prefix (e.g. "../") applies only to relative URLs — an
+            # absolute http(s) link (Portfolio, GitHub, ...) must pass through
+            # unchanged regardless of page depth.
+            def _href(u):
+                return u if re.match(r"^[a-z][a-z0-9+.-]*://", u) else link_prefix + u
             row = " &middot; ".join(
-                f'<a href="{_attr(l["url"])}">{_esc(l["label"])}</a>'
+                f'<a href="{_attr(_href(l["url"]))}">{_esc(l["label"])}</a>'
                 for l in links)
             contact = f'<div class="foot-links">{row}</div>'
         return (f'<footer class="foot">AI SIGNAL '
@@ -1162,7 +1167,7 @@ def render_day_page(day, prev_day, next_day, pitches_by_date, generated,
         f'<div class="topbar"><div class="topbar-inner">{wordmark}</div></div>'
         '<main class="wrap">'
         f'{_render_day(day, pitches_by_date, public=public, excluded=excluded, pitch_link_base=link_base)}'
-        f'{nav}{_footer(generated, public, cfg)}</main></div>')
+        f'{nav}{_footer(generated, public, cfg, link_prefix="../")}</main></div>')
     return _shell(body, public, f'AI Signal — {day["date"]}', cfg=cfg)
 
 
