@@ -97,6 +97,19 @@ class RenderRobustness(unittest.TestCase):
         self.assertIn("Quiet day", self.index)
         self.assertNotIn(">none<", self.index.lower())
 
+    def test_index_search_is_accessible_and_only_indexes_visible_fields(self):
+        day = dict(self.day, date="2026-07-15",
+                   date_obj=datetime(2026, 7, 15),
+                   meta={"top": "Nvidia's <new> chip & tools"})
+        page = site.render_index_page([day], "now", public=True)
+        self.assertIn('<label for="edition-search">Search editions</label>', page)
+        self.assertIn('id="edition-count" aria-live="polite"', page)
+        self.assertIn(
+            'data-search="2026-07-15 Nvidia&#x27;s &lt;new&gt; chip &amp; tools"',
+            page)
+        self.assertIn("d.dataset.search", page)
+        self.assertIn("inRange && matches", page)
+
     def test_internal_ops_never_public(self):
         self.assertNotIn("evt-", self.public)
         self.assertNotIn("Story threads", self.public)

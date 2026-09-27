@@ -650,7 +650,8 @@ def _render_index_rows(days, public=False):
                  f'<span class="idx-stats">{_esc(_short_stats(d))}</span>')
         rows += (
             f'<a class="idx-row" href="days/{_attr(d["date"])}.html" '
-            f'data-month="{_attr(mk)}" data-week="{_attr(wk)}">'
+            f'data-month="{_attr(mk)}" data-week="{_attr(wk)}" '
+            f'data-search="{_attr(d["date"] + " " + _day_headline(d))}">'
             f'<span class="idx-date">{_esc(pretty)}</span>'
             f'<span class="idx-head">{_esc(_day_headline(d))}</span>'
             f'{stats}'
@@ -916,6 +917,10 @@ a:hover{text-decoration:underline;}
   color:var(--ink);}
 .idx-row:hover{text-decoration:none;background:var(--surface);}
 .idx-row[hidden]{display:none;}
+.idx-tools{margin:20px 0 0;}
+.idx-search{width:100%;padding:9px 11px;border:1px solid var(--line);
+  border-radius:7px;background:var(--surface);color:var(--ink);font:inherit;}
+.idx-count{margin:5px 0 0;color:var(--muted);font-size:.78rem;}
 .idx-date{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;
   font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;
   white-space:nowrap;}
@@ -997,15 +1002,23 @@ _SCRIPT = """
   var btns=document.querySelectorAll('.br-b');
   var days=document.querySelectorAll('.idx-row');
   var none=document.querySelector('.br-none');
+  var search=document.querySelector('#edition-search');
+  var count=document.querySelector('#edition-count');
   if(!btns.length||!days.length){return;}
+  var activeType='all', activeValue='';
   function apply(type,value){
+    if(type){activeType=type;activeValue=value;}
+    var query=search?search.value.trim().toLocaleLowerCase():'';
     var shown=0;
     days.forEach(function(d){
-      var show = type==='all' || d.dataset[type]===value;
+      var inRange=activeType==='all' || d.dataset[activeType]===activeValue;
+      var matches=!query || (d.dataset.search||'').toLocaleLowerCase().includes(query);
+      var show=inRange && matches;
       d.hidden = !show;
       if(show){shown++;}
     });
     if(none){none.hidden = shown>0;}
+    if(count){count.textContent=shown+' of '+days.length+' editions';}
   }
   btns.forEach(function(b){
     b.addEventListener('click',function(){
@@ -1017,6 +1030,8 @@ _SCRIPT = """
       if(mon){mon.open=true;}
     });
   });
+  if(search){search.addEventListener('input',function(){apply();});}
+  apply();
 })();
 """
 
@@ -1140,7 +1155,11 @@ def render_index_page(days, generated, public=False, cfg=None):
         f'<div class="topbar"><div class="topbar-inner wide">{wordmark}'
         '</div></div>'
         '<main class="wrap wide"><div class="layout">'
-        f'<div>{_render_index_rows(days, public=public)}</div>'
+        '<div><div class="idx-tools"><label for="edition-search">Search editions</label>'
+        '<input class="idx-search" id="edition-search" type="search" '
+        'placeholder="Date or headline" autocomplete="off">'
+        '<p class="idx-count" id="edition-count" aria-live="polite"></p></div>'
+        f'{_render_index_rows(days, public=public)}</div>'
         f'{_render_index_sidebar(days, cfg)}'
         f'</div>{foot}</main></div>')
     return _shell(body, public, "AI Signal", f"<script>{_SCRIPT}</script>",
