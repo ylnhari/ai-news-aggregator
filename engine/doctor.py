@@ -11,6 +11,7 @@ Exit 0 when the core checks (1-3) pass; HEAD failures are reported but NON-fatal
 (a flaky endpoint must not fail the doctor). Config/registry/DB failures exit 1.
 """
 
+import os
 import urllib.error
 import urllib.request
 
@@ -56,6 +57,29 @@ def _source_status(src) -> str:
     return "enabled"
 
 
+def beat_weight_drift(profile_path, engine_weights):
+    """Compare the beat table in profile/interests.md with the engine's
+    beat_weights. Returns a list of human-readable differences; the engine
+    config is what scoring uses, so any drift means the profile lies."""
+    import re
+    try:
+        text = open(profile_path, encoding="utf-8").read()
+    except OSError:
+        return [f"profile not readable: {profile_path}"]
+    prof = {}
+    for m in re.finditer(r"^\|\s*([a-z][a-z0-9-]*)\s*\|\s*([0-9.]+)\s*\|", text, re.M):
+        prof[m.group(1)] = float(m.group(2))
+    out = []
+    for beat, w in sorted(prof.items()):
+        if beat not in engine_weights:
+            out.append(f"{beat}: in profile ({w}) but not in engine config")
+        elif abs(engine_weights[beat] - w) > 1e-9:
+            out.append(f"{beat}: profile {w} vs engine {engine_weights[beat]}")
+    for beat in sorted(set(engine_weights) - set(prof)):
+        out.append(f"{beat}: in engine config ({engine_weights[beat]}) but not in profile")
+    return out
+
+
 def run(cfg) -> int:
     print("== signaldesk engine: doctor ==")
     failed = False
@@ -79,6 +103,16 @@ def run(cfg) -> int:
     except Exception as e:  # noqa: BLE001
         _fail(f"registry parse failed: {type(e).__name__}: {e}")
         return 1
+
+    # 2b · beat weights: profile table vs engine config -----------------------
+    print("\nBeat weights (profile vs engine config):")
+    drift = beat_weight_drift(
+        os.path.join(cfg.signaldesk_dir, "profile", "interests.md"), cfg.beat_weights)
+    if drift:
+        for d in drift:
+            _warn(d)
+    else:
+        _ok("profile and engine weights agree")
 
     # 3 · DB reachable -------------------------------------------------------
     print("\nDatabase:")

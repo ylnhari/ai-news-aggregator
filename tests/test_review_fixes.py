@@ -94,3 +94,26 @@ class OpenRouterDiffTests(unittest.TestCase):
         new, changed = orr.diff(prev, cur)
         self.assertEqual([m["id"] for m in new], ["b/z"])
         self.assertEqual([m["id"] for _, m in changed], ["a/x"])
+
+
+class PageDiffTests(unittest.TestCase):
+    def test_lines_and_diff(self):
+        from engine.transports import pagediff as pd
+        html_old = "<html><body><script>var x=1;</script><table><tr><td>Opus</td><td>$5</td></tr></table></body></html>"
+        html_new = html_old.replace("$5", "$4") .replace("</table>", "<tr><td>Sonnet</td><td>$2</td></tr></table>")
+        old, new = pd._lines(html_old * 1), pd._lines(html_new)
+        self.assertNotIn("var x=1;", " ".join(new))
+        added, removed = pd.diff_lines(old, new)
+        self.assertIn("$4", added)
+        self.assertIn("$5", removed)
+
+
+class BeatDriftTests(unittest.TestCase):
+    def test_reports_both_directions(self):
+        from engine.doctor import beat_weight_drift
+        tmp = tempfile.mkdtemp()
+        p = os.path.join(tmp, "i.md")
+        open(p, "w").write("| beat | weight | notes |\n|---|---|---|\n| a | 1.0 | x |\n| b | 0.5 | y |\n")
+        out = beat_weight_drift(p, {"a": 0.9, "c": 0.3})
+        shutil.rmtree(tmp, ignore_errors=True)
+        self.assertEqual(len(out), 3)
