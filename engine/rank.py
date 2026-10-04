@@ -34,7 +34,7 @@ _ANCHOR_RE = re.compile(r"\b([a-z][a-z]{2,})[\s\-]?v?(\d+(?:\.\d+)?)\b")
 # applied now alongside the cross-topic stoplist in stories.py that closes
 # the related FLAGS.md 2026-09-02/2026-09-04 false links.
 _ANCHOR_STOP = _STOP | {"top", "best", "part", "year", "week", "day", "step",
-                        "flash", "sol"}
+                        "flash", "sol", "llm", "introducing"}
 
 
 def _anchors(title: str):

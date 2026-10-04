@@ -366,7 +366,9 @@ def _render_story(story, public=False):
             if p.lstrip().startswith("↩") or "prior state:" in p.lower():
                 continue
             p = _STORY_TAG_RE.sub("", p).strip()
-            if not p:
+            # Placeholder / collector-internal gists carry no information for
+            # a reader (and the latter names an internal source id).
+            if not p or p.startswith("(no summary captured")                     or p.startswith("New link on "):
                 continue
         gist_html += f"<p>{_md_inline(p)}</p>"
 

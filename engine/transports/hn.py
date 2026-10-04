@@ -9,7 +9,7 @@ from datetime import timezone
 from urllib.parse import quote
 
 from . import http
-from ..util import to_iso
+from ..util import to_iso, strip_html
 
 
 def fetch(source, since, cfg):
@@ -45,7 +45,7 @@ def fetch(source, since, cfg):
                 "url": target,
                 "title": title,
                 "published_utc": to_iso(hit.get("created_at", "")),
-                "excerpt": (hit.get("story_text") or "")[:2000],
+                "excerpt": strip_html(hit.get("story_text") or "")[:2000],
                 "beats": list(source.beats),
                 "extra": {
                     "hn_points": points,

@@ -109,7 +109,11 @@ def build_markdown(cfg, groups, items, mesh, ist_dt, open_pitches,
         L.append("_Open events, last 10 days — one line each; full history "
                  "stays in the store, never re-read. • = updated this run._")
         L.append("")
-        for st in open_stories[:15]:
+        # Multi-item threads first: recency alone let single-item noise push
+        # substantive open threads out of the 15 slots (FLAGS 2026-09-08).
+        ranked = sorted(open_stories, key=lambda s: (s["item_count"] or 0) >= 2,
+                        reverse=True)  # stable: keeps last_seen order inside each tier
+        for st in ranked[:15]:
             mark = "•" if st["id"] in touched else "·"
             seen = (st["last_seen_utc"] or "")[:10]
             L.append(f"- {mark} `{st['id']}` — {st['state']} "

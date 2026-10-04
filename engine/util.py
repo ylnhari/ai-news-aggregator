@@ -1,6 +1,7 @@
 """Small shared helpers: date parsing, html stripping, canonical URLs, .env."""
 
 import os
+import html
 import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -95,9 +96,12 @@ _WS_RE = re.compile(r"\s+")
 def strip_html(text: str) -> str:
     if not text:
         return ""
+    # Unescape first so entity-escaped markup (HN story_text arrives as
+    # "&lt;a href=...&gt;") is stripped as markup, then unescape again for
+    # entities that were literal text (&amp;, &#x2F;).
+    text = html.unescape(text)
     text = _TAG_RE.sub(" ", text)
-    text = (text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-                .replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " "))
+    text = html.unescape(text)
     return _WS_RE.sub(" ", text).strip()
 
 

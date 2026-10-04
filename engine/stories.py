@@ -14,6 +14,7 @@ pass is the human-in-the-loop that catches them meanwhile (Techmeme model:
 the algorithm proposes, the editor decides).
 """
 
+import html
 import re
 
 from .rank import _tokens, _anchors
@@ -47,7 +48,8 @@ MATCH_WINDOW_DAYS = 10     # research consensus: story clusters cap ~10 days
 # non-anchor shared words happened to be exactly these), so that's left
 # alone; rank.py's _ANCHOR_STOP instead gained "flash"/"sol" so they can
 # never form a false anchor either.
-_CROSS_TOPIC_STOP = {"flash", "sol", "unsloth", "locally", "runnable"}
+_CROSS_TOPIC_STOP = {"flash", "sol", "unsloth", "locally", "runnable",
+                     "llm", "introducing"}
 # Bare version/size fragments ("27b", "70b", "1t", "8b") are meaningless
 # without the model name attached; anchors are unaffected since _ANCHOR_RE
 # binds a number to its preceding name before this filter ever runs.
@@ -75,6 +77,32 @@ def _overlap(a: set, b: set):
     return inter / len(a | b), inter / min(len(a), len(b))
 
 
+_URL_IN_TEXT_RE = re.compile(r"https?://[^\s\"'<>)\]]+")
+
+
+def _url_key(url: str) -> str:
+    """Scheme/www/trailing-slash/fragment-insensitive identity for a link."""
+    u = (url or "").strip().lower().split("#", 1)[0]
+    u = re.sub(r"^https?://(www\.)?", "", u)
+    return u.rstrip("/.,;")
+
+
+def _group_url_keys(group) -> set:
+    """Links a group is about: its items' own URLs plus any URL quoted in an
+    item's excerpt (an HN "tech report: <link>" post names the thing it is
+    about). Two items pointing at the same page are the same story whatever
+    their titles say (FLAGS 2026-10-04, Kolibri)."""
+    keys = set()
+    for it in group["items"]:
+        if it.get("url"):
+            keys.add(_url_key(it["url"]))
+        text = html.unescape(it.get("excerpt") or "")
+        for m in _URL_IN_TEXT_RE.findall(text):
+            keys.add(_url_key(m))
+    keys.discard("")
+    return keys
+
+
 def assign_stories(store, groups, top_n, date_str):
     """Match every group against open stories; create stories for unmatched
     TOP-N groups. Mutates each group with g["story"]:
@@ -87,6 +115,7 @@ def assign_stories(store, groups, top_n, date_str):
         st["_fp"] = _salient({t for t in fp if not t.startswith("#")})
         st["_anchors"] = {t[1:] for t in fp if t.startswith("#")}
 
+    url_story = {}   # url key -> story dict created/touched earlier in this run
     for gi, g in enumerate(groups):
         g["story"] = None
         g_tokens, g_anchors = set(), set()
@@ -97,6 +126,16 @@ def assign_stories(store, groups, top_n, date_str):
         if not g_tokens:
             continue
         g_tokens_salient = _salient(g_tokens)
+
+        g_urls = _group_url_keys(g)
+        shared = next((url_story[k] for k in g_urls if k in url_story), None)
+        if shared is not None:
+            # Same page as an earlier group this run: fold in, don't split.
+            store.touch_story(shared["id"], shared.get("_headline", g["headline"]),
+                              " ".join(g_tokens), len(g["items"]))
+            store.link_items_to_story([it["id"] for it in g["items"]], shared["id"])
+            g["story"] = dict(shared["story"])
+            continue
 
         best, best_j = None, -1.0
         for st in open_before:
@@ -123,6 +162,9 @@ def assign_stories(store, groups, top_n, date_str):
                           "opened": (best["opened_utc"] or "")[:10],
                           "prior_items": best["item_count"] or 0,
                           "state": best["state"] or best["title"]}
+            for k in g_urls:
+                url_story[k] = {"id": best["id"], "story": g["story"],
+                                "_headline": g["headline"]}
         elif gi < top_n:
             sid = f"evt-{date_str.replace('-', '')}-{slugify(g['headline'])}"
             store.create_story(sid, g["headline"],
@@ -131,5 +173,8 @@ def assign_stories(store, groups, top_n, date_str):
             store.link_items_to_story([it["id"] for it in g["items"]], sid)
             g["story"] = {"id": sid, "status": "new", "opened": date_str,
                           "prior_items": 0, "state": g["headline"]}
+            for k in g_urls:
+                url_story[k] = {"id": sid, "story": g["story"],
+                                "_headline": g["headline"]}
     store.commit()
     return store.open_stories(days=MATCH_WINDOW_DAYS)
