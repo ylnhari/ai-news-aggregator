@@ -27,7 +27,7 @@ class SkipSource(Exception):
     untouched so the source self-heals its whole gap once it's configured."""
 
 
-from . import rss, hn, hf, arxiv, greenhouse, htmldiff, reddit  # noqa: F401,E402
+from . import rss, hn, hf, arxiv, greenhouse, htmldiff, reddit, openrouter  # noqa: F401,E402
 
 HANDLERS = {
     "rss": rss.fetch,
@@ -37,6 +37,7 @@ HANDLERS = {
     "greenhouse": greenhouse.fetch,
     "htmldiff": htmldiff.fetch,
     "reddit": reddit.fetch,
+    "openrouter": openrouter.fetch,
 }
 
 # Handlers gated on credentials from .env — doctor uses these to report a

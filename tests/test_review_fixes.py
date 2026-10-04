@@ -80,3 +80,17 @@ class TruncatedTagTests(unittest.TestCase):
     def test_tag_cut_off_by_excerpt_cap_is_dropped(self):
         out = strip_html('demos: &lt;a href=&quot;https://y.com/w?v=1&quot;…')
         self.assertEqual(out, "demos:")
+
+
+class OpenRouterDiffTests(unittest.TestCase):
+    def test_new_model_and_price_move(self):
+        from engine.transports import openrouter as orr
+        prev = {"a/x": {"id": "a/x", "name": "X", "prompt": 1.0, "completion": 4.0},
+                "a/y": {"id": "a/y", "name": "Y", "prompt": 2.0, "completion": 8.0}}
+        cur = orr._current({"data": [
+            {"id": "a/x", "name": "X", "pricing": {"prompt": "0.0000005", "completion": "0.000004"}},
+            {"id": "a/y", "name": "Y", "pricing": {"prompt": "0.0000020", "completion": "0.000008"}},
+            {"id": "b/z", "name": "Z", "pricing": {"prompt": "0.000001", "completion": "0.000002"}}]})
+        new, changed = orr.diff(prev, cur)
+        self.assertEqual([m["id"] for m in new], ["b/z"])
+        self.assertEqual([m["id"] for _, m in changed], ["a/x"])
