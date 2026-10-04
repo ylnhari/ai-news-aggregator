@@ -101,6 +101,8 @@ def strip_html(text: str) -> str:
     # entities that were literal text (&amp;, &#x2F;).
     text = html.unescape(text)
     text = _TAG_RE.sub(" ", text)
+    # a tag cut off mid-way by an excerpt length cap ("<a href=...…")
+    text = re.sub(r"<[a-zA-Z/][^>]*$", " ", text.rstrip("…").rstrip())         if re.search(r"<[a-zA-Z/][^>]*…?$", text) else text
     text = html.unescape(text)
     return _WS_RE.sub(" ", text).strip()
 

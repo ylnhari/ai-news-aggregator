@@ -26,6 +26,7 @@ import re
 import urllib.parse
 from datetime import datetime
 
+from .util import strip_html
 from .config import IST
 # Mirror the writer's structure knowledge — share its constants rather than
 # re-deriving them, so the parser tracks the writer if it changes.
@@ -366,6 +367,10 @@ def _render_story(story, public=False):
             if p.lstrip().startswith("↩") or "prior state:" in p.lower():
                 continue
             p = _STORY_TAG_RE.sub("", p).strip()
+            # Digests written before the collector stripped HN markup carry
+            # entity-escaped <a href> text; clean it for readers.
+            if "&lt;" in p or "&#x" in p or "<a " in p:
+                p = strip_html(p)
             # Placeholder / collector-internal gists carry no information for
             # a reader (and the latter names an internal source id).
             if not p or p.startswith("(no summary captured")                     or p.startswith("New link on "):

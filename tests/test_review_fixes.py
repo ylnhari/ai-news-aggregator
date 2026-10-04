@@ -74,3 +74,9 @@ class StoplistTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TruncatedTagTests(unittest.TestCase):
+    def test_tag_cut_off_by_excerpt_cap_is_dropped(self):
+        out = strip_html('demos: &lt;a href=&quot;https://y.com/w?v=1&quot;…')
+        self.assertEqual(out, "demos:")
